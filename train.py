@@ -28,57 +28,41 @@ def create_stroke_samples(n=1000):
     return actions, outputs
 
 
-def train_neural_stroke(stroke, minibatch=10, epochs=1):
+def train_stroke(model, batch, batch_size=32, epochs=1, save=1, name="stroke_model", render=1):
+    if torch.cuda.is_available():
+        print("Running on CUDA")
+        model.cuda()
 
-    s_optim = optim.Adam(stroke.parameters(), lr=1e-2)
-    # actions = torch.tensor(np.load("data/1k_actions.npy")[0:100], dtype=torch.float)
-    # outputs = torch.tensor(np.load("data/1k_outputs.npy")[0:100], dtype=torch.float)
-
-    actions, outputs = create_stroke_samples(n=10)
-    actions = torch.tensor(actions, dtype=torch.float)
-    outputs = torch.tensor(outputs, dtype=torch.float)
+    s_optim = optim.Adam(model.parameters(), lr=1e-2)
 
     for i in range(epochs):
         tot_loss = []
-        for j in range(len(actions) // min(minibatch, len(actions))):
-            acts = actions[j * minibatch : (j + 1) * minibatch]
-            outs = outputs[j * minibatch : (j + 1) * minibatch]
-            preds = stroke.forward(acts)
 
-            loss = (preds - outs).pow(2).mean()
-            tot_loss.append(loss.item())
-
-            # Train
+        batch.reset()
+        while batch.has_next():
             s_optim.zero_grad()
+
+            x, y = batch.next_batch(batch_size)
+            x = torch.tensor(x, dtype=torch.float)
+            y = torch.tensor(y, dtype=torch.float)
+
+            if torch.cuda.is_available():
+                x = x.cuda()
+                y = y.cuda()
+
+            p = model.forward(x)
+
+            loss = (p - y).pow(2).mean()
+            tot_loss += loss.item()
             loss.backward()
             s_optim.step()
 
-        print("Epoch", i, "loss", np.mean(tot_loss))
+        print("Epoch", i, "loss", tot_loss)
 
-        torchvision.utils.save_image(preds, "out/{:05d}_gen.png".format(i))
-        torchvision.utils.save_image(outs, "out/{:05d}_real.png".format(i))
-        torch.save(stroke.state_dict(), "model/stroke_model_{:05d}".format(i))
+        if i % render == 0:
+            torchvision.utils.save_image(p, "out/{:05d}_p.png".format(i))
+            torchvision.utils.save_image(y, "out/{:05d}_y.png".format(i))
+        if i % save == 0:
+            torch.save(model.state_dict(), "{}_{:05d}".format(name, i))
 
-
-
-if __name__ == "__main__":
-
-    # actions, outputs = create_stroke_samples(n=1000)
-    # np.save("data/1k_actions", actions)
-    # np.save("data/1k_outputs", outputs)
-
-    neural_stroke = NeuralPaintStroke(6 + 2)
-    #train_neural_stroke(neural_stroke, epochs=100)
-
-
-    # Test
-    neural_stroke.load_state_dict(torch.load("model/stroke_model_00099"))
-
-    actions, outputs = create_stroke_samples(n=10)
-    actions = torch.tensor(actions, dtype=torch.float)
-    outputs = torch.tensor(outputs, dtype=torch.float)
-    preds = neural_stroke.forward(actions)
-    fc1test = neural_stroke.fc1(actions)
-    fc1test.view(-1, 16, 16, 16)
-
-    torchvision.utils.save_image(fc1test, "fc1.png")
+    torch.save(model.state_dict(), "{}_{:05d}_done".format(name, epochs))

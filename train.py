@@ -44,6 +44,8 @@ def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, save=1, na
         if refresh > -1 and i % refresh == 0 and i > 0:
             print("Generating new dataset...")
             batch = Batch(epoch_size)
+        else:
+            batch.reset()
 
         while batch.has_next():
             s_optim.zero_grad()

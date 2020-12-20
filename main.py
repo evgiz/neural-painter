@@ -98,7 +98,7 @@ if __name__ == "__main__":
         model = NeuralPaintStroke(8)
 
         if args.load is not None:
-            model.load_state_dict(torch.load(args.name))
+            model.load_state_dict(torch.load(args.load))
 
         train.train_stroke(
             model,

@@ -33,7 +33,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, save=1, na
         print("Running on CUDA")
         model.cuda()
 
-    s_optim = optim.Adam(model.parameters(), lr=1e-2)
+    s_optim = optim.Adam(model.parameters(), lr=1e-4)
 
     print("Generating initial dataset...")
     batch = Batch(epoch_size)
@@ -59,7 +59,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, save=1, na
             p = model.forward(x)
 
             loss = (p - y).pow(2).mean()
-            tot_loss += loss.item()
+            tot_loss += loss.copy().detach().item()
             loss.backward()
             s_optim.step()
 

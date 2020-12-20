@@ -6,7 +6,7 @@ import torch
 import data, train
 import numpy as np
 from neural_painter import NeuralPaintStroke
-
+import torchvision
 
 if __name__ == "__main__":
 

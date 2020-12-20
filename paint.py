@@ -1,6 +1,5 @@
 
 import torch
-import bezier
 import numpy as np
 from torchvision.utils import save_image
 import cv2
@@ -15,11 +14,10 @@ class Painting:
 
     def stroke(self, stroke, samples=250):
         ts = np.linspace(0.0, 1.0, samples)
-        points = stroke.curve.evaluate_multi(ts)
-        points = np.transpose(points)
         pressure = np.interp(ts, [0, 1], stroke.pressure)
 
-        for p, r in zip(points, pressure):
+        for t, r in zip(ts, pressure):
+            p = stroke.eval(t)
             x = int(p[0] * self.width)
             y = int(p[1] * self.height)
             r = int(r * max(self.width, self.height))
@@ -43,7 +41,9 @@ class Painting:
 class Stroke:
 
     def __init__(self, nodes, color=(0, 0, 0), pressure=(0.01, 0.02)):
-        self.nodes = np.asfortranarray(np.transpose(nodes))
-        self.curve = bezier.Curve(self.nodes, degree=2)
+        self.nodes = nodes
         self.color = color * 255
         self.pressure = pressure
+
+    def eval(self, t):
+        return self.nodes[0] * t ** 2 + self.nodes[1] * 2 * t * (1 - t) + self.nodes[2] * (1 - t) ** 2

@@ -59,7 +59,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, save=1, na
             p = model.forward(x)
 
             loss = (p - y).pow(2).mean()
-            tot_loss += loss.copy().detach().item()
+            tot_loss += loss.item()
             loss.backward()
             s_optim.step()
 

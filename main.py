@@ -66,6 +66,12 @@ if __name__ == "__main__":
         type=str
     )
     train_stroke.add_argument(
+        '--learning-rate', '-lr',
+        required=False,
+        default=None,
+        type=float
+    )
+    train_stroke.add_argument(
         '--draw', '-d',
         required=False,
         default=1,
@@ -100,6 +106,7 @@ if __name__ == "__main__":
             args.refresh,
             batch_size=32,
             epochs=args.epochs,
+            learning_rate=args.learning_rate,
             save=args.save,
             name=args.name,
             draw=args.draw

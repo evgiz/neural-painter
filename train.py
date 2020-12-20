@@ -28,12 +28,12 @@ def create_stroke_samples(n=1000):
     return actions, outputs
 
 
-def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, save=1, name="stroke_model", draw=1):
+def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, learning_rate=None, save=1, name="stroke_model", draw=1):
     if torch.cuda.is_available():
         print("Running on CUDA")
         model.cuda()
 
-    s_optim = optim.Adam(model.parameters(), lr=1e-4)
+    s_optim = optim.Adam(model.parameters(), lr=learning_rate or 1e-3)
 
     print("Generating initial dataset...")
     batch = Batch(epoch_size)

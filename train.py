@@ -6,7 +6,7 @@ from neural_painter import NeuralPaintStroke
 import torch.optim as optim
 import torch.nn as nn
 import torchvision
-import pickle
+import data
 
 
 def create_stroke_samples(n=1000):
@@ -28,7 +28,7 @@ def create_stroke_samples(n=1000):
     return actions, outputs
 
 
-def train_stroke(model, batch, batch_size=32, epochs=1, save=1, name="stroke_model", render=1):
+def train_stroke(model, epoch_size, batch_size=32, epochs=1, save=1, name="stroke_model", render=1):
     if torch.cuda.is_available():
         print("Running on CUDA")
         model.cuda()
@@ -37,12 +37,11 @@ def train_stroke(model, batch, batch_size=32, epochs=1, save=1, name="stroke_mod
 
     for i in range(epochs):
         tot_loss = []
-
-        batch.reset()
-        while batch.has_next():
+        epoch_count = 0
+        while epoch_count < epoch_size:
             s_optim.zero_grad()
 
-            x, y = batch.next_batch(batch_size)
+            x, y = data.generate(batch_size, verbose=False)
             x = torch.tensor(x, dtype=torch.float)
             y = torch.tensor(y, dtype=torch.float)
 

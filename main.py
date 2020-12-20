@@ -35,8 +35,8 @@ if __name__ == "__main__":
         type=int
     )
     train_stroke.add_argument(
-        'data',
-        help="data file name",
+        'epoch_size',
+        help="epoch size",
         type=str
     )
     train_stroke.add_argument(
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         print("Done!")
 
     if args.command == "train-stroke":
-        print(f"Training stroke model for {args.epochs} epochs on data {args.data}.")
+        print(f"Training stroke model for {args.epochs} epochs with size {args.epoch_size}.")
         print(f" load parameters: {args.load}")
         print(f" save as '{args.name}' every {args.save} epochs")
         print(f" saving preview render every '{args.render}' epochs")
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
         train.train_stroke(
             model,
-            batch,
+            args.epoch_size,
             batch_size=32,
             epochs=args.epochs,
             save=args.save,

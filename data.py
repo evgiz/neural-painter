@@ -5,7 +5,7 @@ from paint import Painting, Stroke
 
 class Batch:
 
-    def __init__(self, fname):
+    def __init__(self, fname=None):
         self.actions = np.load(fname+"_x.npy")
         self.outputs = np.load(fname+"_y.npy")
         self._next = 0

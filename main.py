@@ -37,7 +37,7 @@ if __name__ == "__main__":
     train_stroke.add_argument(
         'epoch_size',
         help="epoch size",
-        type=str
+        type=int
     )
     train_stroke.add_argument(
         '--load', '-l',
@@ -84,7 +84,6 @@ if __name__ == "__main__":
         print(f" saving preview render every '{args.render}' epochs")
 
         model = NeuralPaintStroke(8)
-        batch = data.Batch(args.data)
 
         if args.load is not None:
             model.load_state_dict(torch.load(args.name))

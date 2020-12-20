@@ -1,0 +1,8 @@
+*.png
+*.npy
+out/
+model/
+data/
+.idea
+__pycache__/
+env/

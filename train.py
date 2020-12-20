@@ -36,7 +36,7 @@ def train_stroke(model, epoch_size, batch_size=32, epochs=1, save=1, name="strok
     s_optim = optim.Adam(model.parameters(), lr=1e-2)
 
     for i in range(epochs):
-        tot_loss = []
+        tot_loss = 0
         epoch_count = 0
         while epoch_count < epoch_size:
             s_optim.zero_grad()

@@ -5,9 +5,8 @@ from paint import Painting, Stroke
 
 class Batch:
 
-    def __init__(self, fname=None):
-        self.actions = np.load(fname+"_x.npy")
-        self.outputs = np.load(fname+"_y.npy")
+    def __init__(self, size=1000):
+        self.actions, self.outputs = generate(size, verbose=False)
         self._next = 0
 
     def reset(self):

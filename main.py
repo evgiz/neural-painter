@@ -40,6 +40,12 @@ if __name__ == "__main__":
         type=int
     )
     train_stroke.add_argument(
+        '--refresh', "-r",
+        help="refresh batch each n epoch",
+        type=int,
+        default=-1
+    )
+    train_stroke.add_argument(
         '--load', '-l',
         required=False,
         default=None,
@@ -60,10 +66,10 @@ if __name__ == "__main__":
         type=str
     )
     train_stroke.add_argument(
-        '--render', '-r',
+        '--draw', '-d',
         required=False,
         default=1,
-        help="save preview image every n epochs",
+        help="draw preview image every n epochs",
         type=int
     )
 
@@ -81,7 +87,7 @@ if __name__ == "__main__":
         print(f"Training stroke model for {args.epochs} epochs with size {args.epoch_size}.")
         print(f" load parameters: {args.load}")
         print(f" save as '{args.name}' every {args.save} epochs")
-        print(f" saving preview render every '{args.render}' epochs")
+        print(f" saving preview draw every '{args.draw}' epochs")
 
         model = NeuralPaintStroke(8)
 
@@ -91,11 +97,12 @@ if __name__ == "__main__":
         train.train_stroke(
             model,
             args.epoch_size,
+            args.refresh,
             batch_size=32,
             epochs=args.epochs,
             save=args.save,
             name=args.name,
-            render=args.render
+            draw=args.draw
        )
 
 

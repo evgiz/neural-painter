@@ -6,7 +6,7 @@ from neural_painter import NeuralPaintStroke
 import torch.optim as optim
 import torch.nn as nn
 import torchvision
-import data
+from data import Batch
 
 
 def create_stroke_samples(n=1000):
@@ -28,20 +28,27 @@ def create_stroke_samples(n=1000):
     return actions, outputs
 
 
-def train_stroke(model, epoch_size, batch_size=32, epochs=1, save=1, name="stroke_model", render=1):
+def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, save=1, name="stroke_model", draw=1):
     if torch.cuda.is_available():
         print("Running on CUDA")
         model.cuda()
 
     s_optim = optim.Adam(model.parameters(), lr=1e-2)
 
+    print("Generating initial dataset...")
+    batch = Batch(epoch_size)
+
     for i in range(epochs):
         tot_loss = 0
-        epoch_count = 0
-        while epoch_count < epoch_size:
+
+        if refresh > -1 and i % refresh == 0 and i > 0:
+            print("Generating new dataset...")
+            batch = Batch(epoch_size)
+
+        while batch.has_next():
             s_optim.zero_grad()
 
-            x, y = data.generate(batch_size, verbose=False)
+            x, y = batch.next_batch(batch_size)
             x = torch.tensor(x, dtype=torch.float)
             y = torch.tensor(y, dtype=torch.float)
 
@@ -58,7 +65,7 @@ def train_stroke(model, epoch_size, batch_size=32, epochs=1, save=1, name="strok
 
         print("Epoch", i, "loss", tot_loss)
 
-        if i % render == 0:
+        if i % draw == 0:
             torchvision.utils.save_image(p, "out/{:05d}_p.png".format(i))
             torchvision.utils.save_image(y, "out/{:05d}_y.png".format(i))
         if i % save == 0:

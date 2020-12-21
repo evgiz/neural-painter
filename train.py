@@ -51,7 +51,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
         print("Epoch", i, "loss", tot_loss)
 
         if i % draw == 0:
-            _, y = data.generate(16)
+            x, y = generate(16)
             x = torch.tensor(x, dtype=torch.float)
             y = torch.tensor(y, dtype=torch.float)
             pp = model.forward(x)

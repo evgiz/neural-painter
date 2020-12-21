@@ -6,7 +6,7 @@ from neural_painter import NeuralPaintStroke
 import torch.optim as optim
 import torch.nn as nn
 import torchvision
-from data import Batch, generate_from_painter
+from data import Batch, generate_from_painter, generate
 import torch.functional as F
 
 
@@ -51,7 +51,11 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
         print("Epoch", i, "loss", tot_loss)
 
         if i % draw == 0:
-            torchvision.utils.save_image(p, "out/{:05d}_p.png".format(i))
+            _, y = data.generate(16)
+            x = torch.tensor(x, dtype=torch.float)
+            y = torch.tensor(y, dtype=torch.float)
+            pp = model.forward(x)
+            torchvision.utils.save_image(pp, "out/{:05d}_p.png".format(i))
             torchvision.utils.save_image(y, "out/{:05d}_y.png".format(i))
         if i % save == 0:
             torch.save(model.state_dict(), "{}_{:05d}".format(name, i))

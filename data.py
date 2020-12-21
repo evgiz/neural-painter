@@ -45,15 +45,12 @@ def generate_from_painter(actions, colors):
     p = Painting(64, 64)
 
     for act, c in zip(actions, colors):
-        pos = np.array([
-            [act[0].item(), act[1].item()],
-            [act[2].item(), act[3].item()],
-            [act[4].item(), act[5].item()]
-        ])
-        pres = np.array(
-            [act[5].item(), act[6].item()]
+        stroke = Stroke(
+            np.array([act[0].item(), act[1].item()]),
+            np.array([act[2].item(), act[3].item()]),
+            np.ones(3) * c.item(),
+            np.array([act[4].item()])
         )
-        stroke = Stroke(pos, np.ones(3) * c.item(), pres)
         p.stroke(stroke)
 
     canvas = p.canvas / 255.0

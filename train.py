@@ -61,12 +61,13 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
 
 def forward_paint(background, model, actions, colors):
 
-    canvas = torch.ones((1, 256, 256)) * background
+    canvas = torch.ones((1, 64, 64)) * background
 
     strokes = model.forward(actions)
 
     for stroke, color in zip(strokes, colors):
         canvas = stroke * color + (1 - stroke) * canvas
+        canvas = stroke
 
     # torchvision.utils.save_image(torch.tensor(real, dtype=torch.float), "strokes_real.png")
 
@@ -75,18 +76,22 @@ def forward_paint(background, model, actions, colors):
 
 def train_painting(target, model, epochs=1000, strokes=10):
 
-    actions = torch.rand(strokes, 8, requires_grad=True)
+    actions = torch.rand(strokes, 5, requires_grad=True)
     colors = torch.ones(strokes, requires_grad=True)
-    target_mean = target.mean().item()
+    target_mean = 0 #target.mean().item()
+
+    canvas = torch.ones((1, 64, 64)) * target_mean
+
+    steps_per_stroke = 10
 
     paint_optimizer = optim.Adam([
         actions,
-        #colors
+        colors
     ], lr=1e-2)
 
     for i in range(epochs):
-        paint_optimizer.zero_grad()
 
+        paint_optimizer.zero_grad()
         pred = forward_paint(target_mean, model, torch.tanh(actions), torch.tanh(colors))
 
         loss = (target - pred).pow(2).mean()
@@ -95,11 +100,15 @@ def train_painting(target, model, epochs=1000, strokes=10):
 
         print(f"Epoch {i} reconstruction loss", loss.item())
 
-        if i % 10 == 0:
+        if i % 100 == 0:
             torchvision.utils.save_image(pred, "out_paint/{:05d}.png".format(i))
             real_strokes = generate_from_painter(actions, colors)
             real_strokes = torch.tensor(real_strokes, dtype=torch.float)
             torchvision.utils.save_image(real_strokes, "out_paint/{:05d}_stroked.png".format(i))
+            torchvision.utils.save_image(pred, "out_paint/{:05d}_pred.png".format(i))
+
+        # Apply stroke
+
 
     torchvision.utils.save_image(pred, "out_paint/done.png")
     real_strokes = generate_from_painter(actions, colors)

@@ -132,17 +132,17 @@ if __name__ == "__main__":
         model = NeuralPaintStroke(5)
         model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
-        acts = torch.rand(16, 8)
-        cols = torch.ones(16, 1)
+        acts = torch.rand(1, 5)
+        cols = torch.ones(1, 1)
 
         # ys = [data.generate_from_painter([acts[i]], [cols[i]]) for i in range(16)]
         # ys = torch.tensor(ys, dtype=torch.float)
 
         for i in range(30):
+            acts = torch.clip(acts, 0, 1)
             p = model.forward(acts)
             torchvision.utils.save_image(p, "test/test_{:05d}.png".format(i))
-            acts += torch.rand(16, 8, dtype=torch.float) * 0.2 - 0.1
-            acts = torch.clip(acts, 0, 1)
+            acts += torch.rand(1, 5, dtype=torch.float) * 0.2 - 0.1
 
     if args.command == "paint":
         model = NeuralPaintStroke(5)

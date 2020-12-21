@@ -103,10 +103,7 @@ if __name__ == "__main__":
     if args.command == "gen-stroke":
         print(f"Generating {args.number} samples...")
         x, y = data.generate(args.number)
-        print(f"Saving as '{args.name}'...")
-        np.save(args.name+"_x", x)
-        np.save(args.name+"_y", y)
-        print("Done!")
+        torchvision.utils.save_image(torch.tensor(y, dtype=torch.float), "strokes.png")
 
     if args.command == "train-stroke":
         print(f"Training stroke model for {args.epochs} epochs with size {args.epoch_size}.")
@@ -114,7 +111,7 @@ if __name__ == "__main__":
         print(f" save as '{args.name}' every {args.save} epochs")
         print(f" saving preview draw every '{args.draw}' epochs")
 
-        model = NeuralPaintStroke(8)
+        model = NeuralPaintStroke(5)
 
         if args.load is not None:
             model.load_state_dict(torch.load(args.load))
@@ -132,7 +129,7 @@ if __name__ == "__main__":
        )
 
     if args.command == "test-stroke":
-        model = NeuralPaintStroke(8)
+        model = NeuralPaintStroke(5)
         model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
         acts = torch.rand(16, 8)
@@ -148,7 +145,7 @@ if __name__ == "__main__":
             acts = torch.clip(acts, 0, 1)
 
     if args.command == "paint":
-        model = NeuralPaintStroke(8)
+        model = NeuralPaintStroke(5)
         model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
         target = cv2.imread('data/target.png', cv2.IMREAD_GRAYSCALE)

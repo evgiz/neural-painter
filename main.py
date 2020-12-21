@@ -79,6 +79,13 @@ if __name__ == "__main__":
         type=int
     )
 
+    test_stroke = subparsers.add_parser('test-stroke')
+    test_stroke.add_argument(
+        'model',
+        help='model parameter name',
+        type=str
+    )
+
     args = parser.parse_args(sys.argv[1:])
 
     if args.command == "gen-stroke":
@@ -111,6 +118,18 @@ if __name__ == "__main__":
             name=args.name,
             draw=args.draw
        )
+
+    if args.command == "test-stroke":
+        model = NeuralPaintStroke(8)
+        model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+
+        x, y = data.generate(16, verbose=False)
+        x = torch.tensor(x, dtype=torch.float)
+        y = torch.tensor(y, dtype=torch.float)
+        p = model.forward(x)
+
+        torchvision.utils.save_image(y, "test_y.png")
+        torchvision.utils.save_image(p, "test_p.png")
 
 
 

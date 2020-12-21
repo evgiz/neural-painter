@@ -77,24 +77,25 @@ def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, learning_r
     torch.save(model.state_dict(), "{}_{:05d}_done".format(name, epochs))
 
 
-def forward_paint(model, actions, colors):
+def forward_paint(background, model, actions, colors):
 
-    canvas = torch.ones((1, 256, 256))
+    canvas = torch.ones((1, 256, 256)) * background
 
     strokes = model.forward(actions)
 
-    torchvision.utils.save_image(strokes, "strokes.png")
+    # torchvision.utils.save_image(strokes, "strokes.png")
 
     real = []
 
     for stroke, color in zip(strokes, colors):
         canvas = stroke * color + (1 - stroke) * canvas
 
-    for act, col in zip(actions, colors):
-        r = generate_from_painter([act], [col])
-        real.append(r)
+    # for act, col in zip(actions, colors):
+    #    r = generate_from_painter([act], [col])
+    #    real.append(r)
 
-    torchvision.utils.save_image(torch.tensor(real, dtype=torch.float), "strokes_real.png")
+    # torchvision.utils.save_image(torch.tensor(real, dtype=torch.float), "strokes_real.png")
+
     return canvas
 
 
@@ -102,6 +103,7 @@ def train_painting(target, model, epochs=1000, strokes=10):
 
     actions = torch.rand(strokes, 8, requires_grad=True)
     colors = torch.rand(strokes, requires_grad=True)
+    target_mean = 0
 
     paint_optimizer = optim.Adam([
         actions,
@@ -111,7 +113,7 @@ def train_painting(target, model, epochs=1000, strokes=10):
     for i in range(epochs):
         paint_optimizer.zero_grad()
 
-        pred = forward_paint(model, torch.tanh(actions), torch.tanh(colors))
+        pred = forward_paint(target_mean, model, torch.tanh(actions), torch.tanh(colors))
 
         loss = (target - pred).pow(2).mean()
         loss.backward()

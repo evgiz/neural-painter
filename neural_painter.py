@@ -10,7 +10,7 @@ class NeuralPaintStroke(nn.Module):
     def __init__(self, action_size):
         super(NeuralPaintStroke, self).__init__()
 
-        self.dim = 16
+        self.dim = 4
         self.chn = [
             128, 64, 32, 16, 1
         ]
@@ -21,9 +21,9 @@ class NeuralPaintStroke(nn.Module):
         self.bn2 = nn.BatchNorm2d(self.chn[1])
         self.conv2 = nn.ConvTranspose2d(self.chn[1], self.chn[2], 4, stride=2, padding=1)
         self.bn3 = nn.BatchNorm2d(self.chn[2])
-        self.conv3 = nn.ConvTranspose2d(self.chn[2], self.chn[3], 4, stride=2, padding=1)
+        self.conv3 = nn.ConvTranspose2d(self.chn[2], self.chn[3], 4, stride=4, padding=0)
         self.bn4 = nn.BatchNorm2d(self.chn[3])
-        self.conv4 = nn.ConvTranspose2d(self.chn[3], self.chn[4], 4, stride=2, padding=1)
+        self.conv4 = nn.ConvTranspose2d(self.chn[3], self.chn[4], 4, stride=4, padding=0)
 
 
     def forward(self, x):

@@ -55,6 +55,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
             x = torch.tensor(x, dtype=torch.float)
             y = torch.tensor(y, dtype=torch.float)
             pp = model.forward(x)
+            print("validation loss: ", loss_f(y, pp).item())
             torchvision.utils.save_image(pp, "out/{:05d}_p.png".format(i))
             torchvision.utils.save_image(y, "out/{:05d}_y.png".format(i))
         if i % save == 0:

@@ -13,7 +13,7 @@ class NeuralPaintStroke(nn.Module):
         self.dim = 16
         self.chn = [
             128, 64, 32, 16, 1
-        ]g
+        ]
 
         self.fc1 = nn.Linear(action_size, self.dim * self.dim * self.chn[0])
         self.conv1 = nn.ConvTranspose2d(self.chn[0], self.chn[1], 4, stride=2, padding=1)

@@ -74,3 +74,29 @@ def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, learning_r
             torch.save(model.state_dict(), "{}_{:05d}".format(name, i))
 
     torch.save(model.state_dict(), "{}_{:05d}_done".format(name, epochs))
+
+
+def forward_paint(model, actions, colors):
+
+    canvas = torch.ones((1, 256, 256))
+    strokes = model.forward(actions)
+
+    torchvision.utils.save_image(strokes, "strokes.png")
+
+    for stroke, color in zip(strokes, colors):
+        mask = 1.0 - stroke
+        canvas = mask * color + (1 - mask) * canvas
+
+    return canvas
+
+
+def train_painting(target, model, epochs=100, strokes=10):
+
+    actions = torch.rand((strokes, 8))
+    colors = torch.zeros(strokes)
+
+    canvas = forward_paint(model, actions, colors)
+
+    torchvision.utils.save_image(canvas, "canvas.png")
+
+

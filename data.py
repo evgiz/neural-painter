@@ -24,7 +24,7 @@ class Batch:
         self._next += size
         return x, y
 
-# TODO does flipping target color ease learning? Mask of one requires activation only for stroke not surround
+
 def generate(n=1000, verbose=True):
     actions = []
     outputs = []
@@ -38,7 +38,7 @@ def generate(n=1000, verbose=True):
 
         canvas = p.canvas / 255.0
         canvas = np.moveaxis(canvas, 2, 0)
-        outputs.append([canvas[0]])
+        outputs.append([1.0 - canvas[0]])
         if i % 100 == 0 and verbose:
             print("{:.2f}%".format(i/n*100))
     return actions, outputs

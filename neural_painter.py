@@ -12,7 +12,7 @@ class NeuralPaintStroke(nn.Module):
 
         self.dim = 16
         self.chn = [
-            32, 16, 12, 8, 1
+            128, 64, 32, 16, 1
         ]
 
         self.fc1 = nn.Linear(action_size, self.dim * self.dim * self.chn[0])

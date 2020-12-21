@@ -30,16 +30,32 @@ def generate(n=1000, verbose=True):
     outputs = []
     for i in range(n):
         p = Painting(256, 256)
-        pos = np.random.rand(3, 2)
-        pres = np.random.rand(2) / 10.0
-        stroke = Stroke(pos, np.zeros(3), pres)
+        stroke = Stroke.random()
         p.stroke(stroke)
-        actions.append(np.concatenate([pos.reshape(-1), pres]))
 
-        canvas = p.canvas / 255.0
-        canvas = np.moveaxis(canvas, 2, 0)
-        outputs.append([1.0 - canvas[0]])
+        actions.append(stroke.actions())
+        outputs.append([p.norm_canvas()])
+
         if i % 100 == 0 and verbose:
             print("{:.2f}%".format(i/n*100))
     return actions, outputs
 
+
+def generate_from_painter(actions, colors):
+    p = Painting(256, 256)
+
+    for act, c in zip(actions, colors):
+        pos = np.array([
+            [act[0].item(), act[1].item()],
+            [act[2].item(), act[3].item()],
+            [act[4].item(), act[5].item()]
+        ])
+        pres = np.array(
+            [act[5].item(), act[6].item()]
+        )
+        stroke = Stroke(pos, np.ones(3) * c.item(), pres)
+        p.stroke(stroke)
+
+    canvas = p.canvas / 255.0
+    canvas = np.moveaxis(canvas, 2, 0)
+    return canvas

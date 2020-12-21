@@ -2,7 +2,7 @@
 import sys
 import argparse
 
-import torch
+import torch, cv2
 import data, train
 import numpy as np
 from neural_painter import NeuralPaintStroke
@@ -135,20 +135,25 @@ if __name__ == "__main__":
         model = NeuralPaintStroke(8)
         model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
-        x, y = data.generate(16, verbose=False)
-        x = torch.tensor(x, dtype=torch.float)
-        y = torch.tensor(y, dtype=torch.float)
-        p = model.forward(x)
+        acts = torch.rand(16, 8)
+        cols = torch.zeros(16, 1)
 
-        torchvision.utils.save_image(y, "test_y.png")
+        ys = [data.generate_from_painter([acts[i]], [cols[i]]) for i in range(16)]
+        ys = torch.tensor(ys, dtype=torch.float)
+        p = model.forward(acts)
+
+        torchvision.utils.save_image(ys, "test_y.png")
         torchvision.utils.save_image(p, "test_p.png")
 
     if args.command == "paint":
         model = NeuralPaintStroke(8)
         model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+
+        target = cv2.imread('data/target.png', cv2.IMREAD_GRAYSCALE)
+        target = torch.tensor([target / 255.0], dtype=torch.float)
+
         train.train_painting(
-            None,
+            target,
             model,
-            epochs=1,
             strokes=args.strokes
         )

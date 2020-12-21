@@ -57,7 +57,7 @@ if __name__ == "__main__":
         required=False,
         default=1,
         help='save checkpoint every n epochs',
-        type=str
+        type=int
     )
     train_stroke.add_argument(
         '--name', '-n',

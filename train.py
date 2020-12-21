@@ -9,26 +9,8 @@ import torchvision
 from data import Batch, generate_from_painter
 import torch.functional as F
 
-def create_stroke_samples(n=1000):
-    actions = []
-    outputs = []
-    print(f"Generating {n} samples...")
-    for i in range(n):
-        p = Painting(256, 256)
-        pos = np.random.rand(3, 2)
-        pres = np.random.rand(2) / 10.0
-        stroke = Stroke(pos, np.zeros(3), pres)
-        p.stroke(stroke)
-        actions.append(np.concatenate([pos.reshape(-1), pres]))
 
-        canvas = p.canvas / 255.0
-        canvas = np.moveaxis(canvas, 2, 0)
-        outputs.append([canvas[0]])
-        print(f"{i}/{n}")
-    return actions, outputs
-
-
-def train_stroke(model, epoch_size, refresh, batch_size=32, epochs=1, learning_rate=None, save=1, name="stroke_model", draw=1):
+def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_rate=None, save=1, name="stroke_model", draw=1):
     if torch.cuda.is_available():
         print("Running on CUDA")
         model.cuda()

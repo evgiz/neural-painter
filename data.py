@@ -29,7 +29,7 @@ def generate(n=1000, verbose=True):
     actions = []
     outputs = []
     for i in range(n):
-        p = Painting(256, 256)
+        p = Painting(64, 64)
         stroke = Stroke.random()
         p.stroke(stroke)
 
@@ -42,7 +42,7 @@ def generate(n=1000, verbose=True):
 
 
 def generate_from_painter(actions, colors):
-    p = Painting(256, 256)
+    p = Painting(64, 64)
 
     for act, c in zip(actions, colors):
         pos = np.array([

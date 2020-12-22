@@ -84,7 +84,7 @@ def forward_paint(background, model, actions, colors):
 def train_painting(target, model, epochs=1000, strokes=10, learning_rate=None):
 
     actions = torch.rand(strokes, 5, requires_grad=True)
-    colors = torch.ones(strokes, requires_grad=True)
+    colors = torch.rand(strokes, requires_grad=True)
     target_mean = target.mean().item()
 
     paint_optimizer = optim.Adam([

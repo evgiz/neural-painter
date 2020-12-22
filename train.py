@@ -68,9 +68,10 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
 
 
 def forward_paint(canvas, model, actions, colors):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    result = canvas.clone().detach()
-    strokes = model.forward(actions)
+    result = canvas.clone().detach().to(device)
+    strokes = model.forward(actions).to(device)
 
     for stroke, color in zip(strokes, colors):
         color_action = color.view(-1, 3, 1, 1)

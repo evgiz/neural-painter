@@ -152,9 +152,10 @@ if __name__ == "__main__":
         model = NeuralPaintStroke(5)
         model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
-        target = cv2.imread('data/target.png', cv2.IMREAD_GRAYSCALE)
+        target = cv2.imread('data/target_col.png', cv2.IMREAD_COLOR)
         target = torch.tensor([target / 255.0], dtype=torch.float)
-
+        target = target.permute(0, 3, 1, 2)
+        print(target.shape)
         train.train_painting(
             target,
             model,

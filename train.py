@@ -69,7 +69,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
 
 def forward_paint(canvas, model, actions, colors):
 
-    result = canvas
+    result = torch.tensor(canvas)
     strokes = model.forward(actions)
 
     for stroke, color in zip(strokes, colors):
@@ -77,7 +77,7 @@ def forward_paint(canvas, model, actions, colors):
         color_action = color_action.repeat(1, 1, 64, 64)
 
         col = stroke * color_action
-        result = col + (1 - stroke) * result
+        result = torch.tensor(col + (1 - stroke) * result)
 
     return result
 

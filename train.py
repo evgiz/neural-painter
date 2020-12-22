@@ -180,6 +180,10 @@ def paint_chunked(target_name, model, chunks=16, strokes=4):
         row = []
         for y in range(chunks_y):
             print(f"Rendering ({x}, {y})...")
+
+            if torch.cuda.is_available():
+                targets[x][y].cuda()
+
             out = train_painting(
                 targets[x][y],
                 model,

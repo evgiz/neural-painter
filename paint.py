@@ -15,7 +15,7 @@ class Painting:
     def stroke(self, stroke, samples=250):
         ts = np.linspace(0.0, 1.0, samples)
         # Pressure size used for drawing
-        ref_pres = 0.1 * pressure + (1 - pressure) * 0.01
+        ref_pres = 0.1 * stroke.pressure + (1 - stroke.pressure) * 0.01
         for t in ts:
             p = stroke.eval(t)
             x = int(p[0] * self.width)

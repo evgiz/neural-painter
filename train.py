@@ -68,10 +68,9 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
 
 
 def forward_paint(canvas, model, actions, colors):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    result = canvas.clone().detach().to(device)
-    strokes = model.forward(actions).to(device)
+    result = canvas.clone().detach()
+    strokes = model.forward(actions)
 
     for stroke, color in zip(strokes, colors):
         color_action = color.view(-1, 3, 1, 1)
@@ -86,15 +85,20 @@ def forward_paint(canvas, model, actions, colors):
 def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, background=None, learning_rate=None, verbose=True):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    if torch.cuda.is_available():
-        model.to(device)
-        target.to(device)
+
 
     actions = torch.rand(simultaneous, 5, requires_grad=True)
     colors = torch.rand(simultaneous, 3, requires_grad=True)
     target_mean = background if background is not None else target.mean().item()
 
     canvas = torch.ones(3, 64, 64) * target_mean
+
+    # Send to gpu
+    model.to(device)
+    target.to(device)
+    canvas.to(device)
+    actions.to(device)
+    colors.to(device)
 
     paint_optimizer = optim.Adam([
         actions,
@@ -107,7 +111,7 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
         for _ in range(epochs):
             paint_optimizer.zero_grad()
-            pred = forward_paint(canvas.to(device), model.to(device), torch.sigmoid(actions).to(device), torch.sigmoid(colors).to(device))
+            pred = forward_paint(canvas, model, torch.sigmoid(actions), torch.sigmoid(colors))
 
             loss = (target - pred).pow(2).mean()
             loss.backward(retain_graph=True)
@@ -124,9 +128,9 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
         # Priority test (find best of n new strokes to commit to)
         for _ in range(priority_test):
-            a_test = torch.rand(simultaneous, 5)
-            c_test = torch.rand(simultaneous, 3)
-            pp = forward_paint(canvas.to(device), model.to(device), torch.sigmoid(a_test).to(device), torch.sigmoid(c_test).to(device))
+            a_test = torch.rand(simultaneous, 5).to(device)
+            c_test = torch.rand(simultaneous, 3).to(device)
+            pp = forward_paint(canvas, model, torch.sigmoid(a_test), torch.sigmoid(c_test))
             p_loss = (target - pp).pow(2).mean().item()
             if p_loss < best_loss:
                 actions.data = a_test.data

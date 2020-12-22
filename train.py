@@ -95,6 +95,8 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
         colors
     ], lr=learning_rate or 1e-3)
 
+    priority_test = 32
+
     for i in range(strokes):
 
         for _ in range(epochs):
@@ -110,6 +112,20 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
         canvas.data = pred.data
         actions.data = torch.rand(simultaneous, 5).data
         colors.data = torch.rand(simultaneous, 3).data
+
+        pred = forward_paint(canvas, model, torch.sigmoid(actions), torch.sigmoid(colors))
+        best_loss = (target - pred).pow(2).mean().item()
+
+        # Priority test (find best of n new strokes to commit to)
+        for _ in range(priority_test):
+            a_test = torch.rand(simultaneous, 5)
+            c_test = torch.rand(simultaneous, 3)
+            pred = forward_paint(canvas, model, torch.sigmoid(a_test), torch.sigmoid(c_test))
+            p_loss = (target - pred).pow(2).mean().item()
+            if p_loss < best_loss:
+                actions.data = a_test.data
+                colors.data = c_test.data
+                best_loss = p_loss
 
         # Reset optimizer parameters
         paint_optimizer = optim.Adam([

@@ -128,7 +128,28 @@ if __name__ == "__main__":
         type=str
     )
 
+    chunk = subparsers.add_parser('chunk')
+    chunk.add_argument(
+        'model',
+        help='model parameter name',
+        type=str
+    )
+    chunk.add_argument(
+        'target',
+        help='target file name',
+        type=str
+    )
+    chunk.add_argument(
+        '--chunks', '-c',
+        help='number of chunks (calculated from width)',
+        required=False,
+        default=8,
+        type=int
+    )
+
     args = parser.parse_args(sys.argv[1:])
+
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     if args.command == "gen-stroke":
         print(f"Generating {args.number} samples...")
@@ -160,7 +181,7 @@ if __name__ == "__main__":
 
     if args.command == "test-stroke":
         model = NeuralPaintStroke(5)
-        model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(args.model, map_location=device))
 
         x, _ = data.generate(32)
         acts = torch.tensor(x, dtype=torch.float)
@@ -174,7 +195,7 @@ if __name__ == "__main__":
 
     if args.command == "paint":
         model = NeuralPaintStroke(5)
-        model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(args.model, map_location=device))
 
         target = cv2.imread(args.target, cv2.IMREAD_COLOR)
         target = cv2.cvtColor(target, cv2.COLOR_BGR2RGB)
@@ -189,4 +210,14 @@ if __name__ == "__main__":
             simultaneous=args.simultaneous,
             background=args.background,
             learning_rate=args.learning_rate
+        )
+
+    if args.command == "chunk":
+        model = NeuralPaintStroke(5)
+        model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
+
+        train.paint_chunked(
+            args.target,
+            model,
+            chunks=args.chunks
         )

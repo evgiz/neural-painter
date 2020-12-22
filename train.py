@@ -1,5 +1,5 @@
 
-import torch
+import torch, cv2
 import numpy as np
 from paint import Painting, Stroke
 from neural_painter import NeuralPaintStroke
@@ -82,7 +82,7 @@ def forward_paint(canvas, model, actions, colors):
     return result
 
 
-def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, background=None, learning_rate=None):
+def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, background=None, learning_rate=None, verbose=True):
 
     actions = torch.rand(simultaneous, 5, requires_grad=True)
     colors = torch.rand(simultaneous, 3, requires_grad=True)
@@ -95,7 +95,7 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
         colors
     ], lr=learning_rate or 1e-3)
 
-    priority_test = 32
+    priority_test = 3
 
     for i in range(strokes):
 
@@ -120,8 +120,8 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
         for _ in range(priority_test):
             a_test = torch.rand(simultaneous, 5)
             c_test = torch.rand(simultaneous, 3)
-            pred = forward_paint(canvas, model, torch.sigmoid(a_test), torch.sigmoid(c_test))
-            p_loss = (target - pred).pow(2).mean().item()
+            pp = forward_paint(canvas, model, torch.sigmoid(a_test), torch.sigmoid(c_test))
+            p_loss = (target - pp).pow(2).mean().item()
             if p_loss < best_loss:
                 actions.data = a_test.data
                 colors.data = c_test.data
@@ -133,16 +133,68 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
             colors
         ], lr=learning_rate or 1e-3)
 
-        if i % 1 == 0:
-            pred = torch.clip(pred, 0, 1)
+        if verbose and i % 1 == 0:
             torchvision.utils.save_image(canvas, "out_paint/{:05d}.png".format(i))
-            # real_strokes = generate_from_painter(torch.sigmoid(actions), torch.sigmoid(colors))
-            # real_strokes = torch.tensor(real_strokes, dtype=torch.float)
-            # torchvision.utils.save_image(real_strokes, "out_paint/{:05d}_stroked.png".format(i))
 
-    torchvision.utils.save_image(pred, "out_paint/done.png")
-    # real_strokes = generate_from_painter(actions, colors)
-    # real_strokes = torch.tensor(real_strokes, dtype=torch.float)
-    # torchvision.utils.save_image(real_strokes, "out_paint/done_stroked.png")
+    if verbose:
+        torchvision.utils.save_image(canvas, "out_paint/done.png")
+
+    return canvas
+
+
+def paint_chunked(target_name, model, chunks=16, strokes=4):
+
+    # Preprocess chunks
+    print("Generating target chunks...")
+
+    target = cv2.imread(target_name, cv2.IMREAD_COLOR)
+    target = cv2.cvtColor(target, cv2.COLOR_BGR2RGB)
+
+    chunk_size = int(target.shape[0] / chunks)
+    chunks_y = int(target.shape[1] / chunk_size + 0.5)
+
+    targets = [[] for _ in range(chunks)]
+    outputs = []
+
+    # Crop chunks
+    for x in range(chunks):
+        for y in range(chunks_y):
+            xend = target.shape[0] - 1 if x == chunks-1 else x * chunk_size + chunk_size
+            yend = target.shape[1] - 1 if y == chunks_y - 1 else y * chunk_size + chunk_size
+
+            chunk = target[y*chunk_size:yend, x*chunk_size:xend]
+            chunk = cv2.resize(chunk, (64, 64), interpolation=cv2.INTER_AREA)
+
+            chunk = torch.tensor([chunk / 255.0], dtype=torch.float)
+            print(x, y, chunk.shape)
+            chunk = chunk.permute(0, 3, 1, 2)
+
+            targets[x].append(chunk)
+
+    # Render chunks
+    for x in range(chunks):
+        row = []
+        for y in range(chunks_y):
+            print(f"Rendering ({x}, {y})...")
+            out = train_painting(
+                targets[x][y],
+                model,
+                epochs=150,
+                strokes=6,
+                simultaneous=3,
+                background=1,
+                learning_rate=1e-1,
+                verbose=False
+            )
+            row.append(out)
+
+        stitched = torch.cat(row, dim=2)
+        print(stitched.shape)
+        outputs.append(stitched)
+
+    stitched = torch.cat(outputs, dim=3)
+    print(stitched.shape)
+    torchvision.utils.save_image(stitched, "chunk/result.png")
+
 
 

@@ -31,9 +31,8 @@ def generate(n=1000, verbose=True):
     for i in range(n):
         p = Painting(64, 64)
         stroke = Stroke.random()
-        p.stroke(stroke)
-
         actions.append(stroke.actions())
+        p.stroke(stroke)
         outputs.append([p.norm_canvas()])
 
         if i % 100 == 0 and verbose:

@@ -115,6 +115,12 @@ if __name__ == "__main__":
         default=1,
         type=int
     )
+    paint.add_argument(
+        '--background', '-b',
+        required=False,
+        default=None,
+        type=float
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -172,8 +178,9 @@ if __name__ == "__main__":
         train.train_painting(
             target,
             model,
+            epochs=args.epochs,
             strokes=args.strokes,
             simultaneous=args.simultaneous,
-            epochs=args.epochs,
+            background=args.background,
             learning_rate=args.learning_rate
         )

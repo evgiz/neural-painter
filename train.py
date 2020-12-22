@@ -107,7 +107,7 @@ def train_painting(target, model, epochs=1000, strokes=10):
 
         print(f"Epoch {i} reconstruction loss", tot_loss)
 
-        if i % 10 == 0:
+        if i % 5 == 0:
             pred = torch.clip(pred, 0, 1)
             torchvision.utils.save_image(pred, "out_paint/{:05d}.png".format(i))
             real_strokes = generate_from_painter(torch.sigmoid(actions), torch.sigmoid(colors))

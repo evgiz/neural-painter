@@ -44,7 +44,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
             p = model.forward(x)
 
             loss = loss_f(y, p)
-            tot_loss += loss.item()
+            tot_loss += loss.item() / x.shape[0]
             loss.backward()
             s_optim.step()
 
@@ -58,7 +58,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
                 x = x.cuda()
                 y = y.cuda()
             pp = model.forward(x)
-            print("validation loss: ", loss_f(y, pp).item())
+            print("validation loss: ", loss_f(y, pp).item() / x.shape[0])
             torchvision.utils.save_image(pp, "out/{:05d}_p.png".format(i))
             torchvision.utils.save_image(y, "out/{:05d}_y.png".format(i))
         if i % save == 0:

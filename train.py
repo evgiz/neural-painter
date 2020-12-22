@@ -111,6 +111,12 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
         actions.data = torch.rand(simultaneous, 5).data
         colors.data = torch.rand(simultaneous, 3).data
 
+        # Reset optimizer parameters
+        paint_optimizer = optim.Adam([
+            actions,
+            colors
+        ], lr=learning_rate or 1e-3)
+
         if i % 1 == 0:
             pred = torch.clip(pred, 0, 1)
             torchvision.utils.save_image(canvas, "out_paint/{:05d}.png".format(i))

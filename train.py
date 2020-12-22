@@ -69,7 +69,9 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
 
 def forward_paint(canvas, model, actions, colors):
 
-    result = canvas.clone().detach()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    result = canvas.clone().detach().to(device)
     strokes = model.forward(actions)
 
     for stroke, color in zip(strokes, colors):
@@ -79,13 +81,12 @@ def forward_paint(canvas, model, actions, colors):
         col = stroke * color_action
         result = col + (1 - stroke) * result
 
-    return result
+    return result.to(device)
 
 
 def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, background=None, learning_rate=None, verbose=True):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
     actions = torch.rand(simultaneous, 5, requires_grad=True)
     colors = torch.rand(simultaneous, 3, requires_grad=True)
@@ -94,43 +95,25 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
     canvas = torch.ones(3, 64, 64) * target_mean
 
     # Send to gpu
-    model.to(device)
-    target.to(device)
-    canvas.to(device)
-    actions.to(device)
-    colors.to(device)
-
-    paint_optimizer = optim.Adam([
-        actions,
-        colors
-    ], lr=learning_rate or 1e-3)
+    model = model.to(device)
+    target = target.to(device)
+    canvas = canvas.to(device)
 
     priority_test = 3
 
     for i in range(strokes):
 
-        for _ in range(epochs):
-            paint_optimizer.zero_grad()
-            pred = forward_paint(canvas, model, torch.sigmoid(actions), torch.sigmoid(colors))
-
-            loss = (target - pred).pow(2).mean()
-            loss.backward(retain_graph=True)
-            paint_optimizer.step()
-
-        print(f"Stroke {i} reconstruction loss", loss.item())
-
-        canvas.data = pred.data
         actions.data = torch.rand(simultaneous, 5).data
         colors.data = torch.rand(simultaneous, 3).data
 
-        pred = forward_paint(canvas.to(device), model.to(device), torch.sigmoid(actions).to(device), torch.sigmoid(colors).to(device))
+        pred = forward_paint(canvas, model, torch.sigmoid(actions).to(device), torch.sigmoid(colors).to(device))
         best_loss = (target - pred).pow(2).mean().item()
 
         # Priority test (find best of n new strokes to commit to)
         for _ in range(priority_test):
-            a_test = torch.rand(simultaneous, 5).to(device)
-            c_test = torch.rand(simultaneous, 3).to(device)
-            pp = forward_paint(canvas, model, torch.sigmoid(a_test), torch.sigmoid(c_test))
+            a_test = torch.rand(simultaneous, 5)
+            c_test = torch.rand(simultaneous, 3)
+            pp = forward_paint(canvas, model, torch.sigmoid(a_test).to(device), torch.sigmoid(c_test).to(device))
             p_loss = (target - pp).pow(2).mean().item()
             if p_loss < best_loss:
                 actions.data = a_test.data
@@ -142,6 +125,17 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
             actions,
             colors
         ], lr=learning_rate or 1e-3)
+
+        for _ in range(epochs):
+            paint_optimizer.zero_grad()
+            pred = forward_paint(canvas, model, torch.sigmoid(actions).to(device), torch.sigmoid(colors).to(device))
+            loss = (target - pred).pow(2).mean()
+            loss.backward(retain_graph=True)
+            paint_optimizer.step()
+
+        # Save stroke to canvas
+        print(f"Stroke {i} reconstruction loss", loss.item())
+        canvas.data = pred.data
 
         if verbose and i % 1 == 0:
             torchvision.utils.save_image(canvas, "out_paint/{:05d}.png".format(i))
@@ -156,7 +150,6 @@ def paint_chunked(target_name, model, chunks=16, strokes=4):
 
     if torch.cuda.is_available():
         print("Running on CUDA")
-        model.cuda()
 
     # Preprocess chunks
     print("Generating target chunks...")
@@ -190,17 +183,13 @@ def paint_chunked(target_name, model, chunks=16, strokes=4):
         row = []
         for y in range(chunks_y):
             print(f"Rendering ({x}, {y})...")
-
-            if torch.cuda.is_available():
-                targets[x][y].cuda()
-
             out = train_painting(
                 targets[x][y],
                 model,
-                epochs=150,
+                epochs=50,
                 strokes=6,
                 simultaneous=3,
-                background=1,
+                background=-1,
                 learning_rate=1e-1,
                 verbose=False
             )

@@ -14,13 +14,11 @@ class Painting:
 
     def stroke(self, stroke, samples=250):
         ts = np.linspace(0.0, 1.0, samples)
-        # Pressure size used for drawing
-        ref_pres = 0.1 * stroke.pressure + (1 - stroke.pressure) * 0.01
         for t in ts:
             p = stroke.eval(t)
             x = int(p[0] * self.width)
             y = int(p[1] * self.height)
-            r = ref_pres * t + ref_pres * 0.5 * (1 - t) # Radius falloff
+            r = stroke.pressure * t + stroke.pressure * 0.5 * (1 - t) # Radius falloff
             r = int(r * max(self.width, self.height))
 
             cv2.circle(self.canvas, (x, y), max(0, r), stroke.color * 255.0, -1)

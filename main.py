@@ -97,6 +97,12 @@ if __name__ == "__main__":
         help='number of strokes',
         type=int
     )
+    paint.add_argument(
+        '--learning-rate', '-lr',
+        required=False,
+        default=None,
+        type=float
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -152,5 +158,6 @@ if __name__ == "__main__":
         train.train_painting(
             target,
             model,
-            strokes=args.strokes
+            strokes=args.strokes,
+            learning_rate=args.learning_rate
         )

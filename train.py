@@ -81,7 +81,7 @@ def forward_paint(background, model, actions, colors):
     return canvas
 
 
-def train_painting(target, model, epochs=1000, strokes=10):
+def train_painting(target, model, epochs=1000, strokes=10, learning_rate=None):
 
     actions = torch.rand(strokes, 5, requires_grad=True)
     colors = torch.ones(strokes, requires_grad=True)
@@ -90,7 +90,7 @@ def train_painting(target, model, epochs=1000, strokes=10):
     paint_optimizer = optim.Adam([
         actions,
         colors
-    ], lr=1e-2)
+    ], lr=learning_rate or 1e-3)
 
     steps_per_epoch = 100
     for i in range(epochs):
@@ -113,9 +113,6 @@ def train_painting(target, model, epochs=1000, strokes=10):
             real_strokes = generate_from_painter(torch.sigmoid(actions), torch.sigmoid(colors))
             real_strokes = torch.tensor(real_strokes, dtype=torch.float)
             torchvision.utils.save_image(real_strokes, "out_paint/{:05d}_stroked.png".format(i))
-
-        # Apply stroke
-
 
     torchvision.utils.save_image(pred, "out_paint/done.png")
     real_strokes = generate_from_painter(actions, colors)

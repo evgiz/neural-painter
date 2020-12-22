@@ -86,7 +86,8 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if torch.cuda.is_available():
-        model.cuda()
+        model.to(device)
+        target.to(device)
 
     actions = torch.rand(simultaneous, 5, requires_grad=True)
     colors = torch.rand(simultaneous, 3, requires_grad=True)

@@ -144,6 +144,10 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
 def paint_chunked(target_name, model, chunks=16, strokes=4):
 
+    if torch.cuda.is_available():
+        print("Running on CUDA")
+        model.cuda()
+
     # Preprocess chunks
     print("Generating target chunks...")
 

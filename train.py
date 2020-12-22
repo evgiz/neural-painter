@@ -67,10 +67,9 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
     torch.save(model.state_dict(), "{}_{:05d}_done".format(name, epochs))
 
 
-def forward_paint(background, model, actions, colors):
+def forward_paint(canvas, model, actions, colors):
 
-    canvas = torch.ones((3, 64, 64)) * background
-
+    result = canvas
     strokes = model.forward(actions)
 
     for stroke, color in zip(strokes, colors):
@@ -78,49 +77,57 @@ def forward_paint(background, model, actions, colors):
         color_action = color_action.repeat(1, 1, 64, 64)
 
         col = stroke * color_action
-        canvas = col + (1 - stroke) * canvas
+        result = col + (1 - stroke) * result
 
-    # torchvision.utils.save_image(torch.tensor(real, dtype=torch.float), "strokes_real.png")
-
-    return canvas
+    return result
 
 
 def train_painting(target, model, epochs=1000, strokes=10, learning_rate=None):
 
-    actions = torch.rand(strokes, 5, requires_grad=True)
-    colors = torch.rand(strokes, 3, requires_grad=True)
+    actions = torch.rand(1, 5, requires_grad=True)
+    colors = torch.rand(1, 3, requires_grad=True)
     target_mean = target.mean().item()
+
+    canvas = torch.ones(3, 64, 64) * target_mean
 
     paint_optimizer = optim.Adam([
         actions,
         colors
     ], lr=learning_rate or 1e-3)
 
-    steps_per_epoch = 20
-    for i in range(epochs):
+    steps_per_stroke = 150
 
-        tot_loss = 0
-        for _ in range(steps_per_epoch):
+    for i in range(strokes):
+
+        for _ in range(steps_per_stroke):
             paint_optimizer.zero_grad()
-            pred = forward_paint(target_mean, model, torch.sigmoid(actions), torch.sigmoid(colors))
+            pred = forward_paint(canvas, model, torch.sigmoid(actions), torch.sigmoid(colors))
 
             loss = (target - pred).pow(2).mean()
-            loss.backward()
+            loss.backward(retain_graph=True)
             paint_optimizer.step()
-            tot_loss += loss.item()
 
-        print(f"Epoch {i} reconstruction loss", tot_loss)
+        print(f"Stroke {i} reconstruction loss", loss.item())
 
-        if i % 5 == 0:
+        canvas = pred
+        actions = torch.rand(1, 5, requires_grad=True)
+        colors = torch.rand(1, 3, requires_grad=True)
+        paint_optimizer = optim.Adam([
+            actions,
+            colors
+        ], lr=learning_rate or 1e-3)
+
+
+        if i % 1 == 0:
             pred = torch.clip(pred, 0, 1)
-            torchvision.utils.save_image(pred, "out_paint/{:05d}.png".format(i))
+            torchvision.utils.save_image(canvas, "out_paint/{:05d}.png".format(i))
             # real_strokes = generate_from_painter(torch.sigmoid(actions), torch.sigmoid(colors))
             # real_strokes = torch.tensor(real_strokes, dtype=torch.float)
             # torchvision.utils.save_image(real_strokes, "out_paint/{:05d}_stroked.png".format(i))
 
     torchvision.utils.save_image(pred, "out_paint/done.png")
-    real_strokes = generate_from_painter(actions, colors)
-    real_strokes = torch.tensor(real_strokes, dtype=torch.float)
-    torchvision.utils.save_image(real_strokes, "out_paint/done_stroked.png")
+    # real_strokes = generate_from_painter(actions, colors)
+    # real_strokes = torch.tensor(real_strokes, dtype=torch.float)
+    # torchvision.utils.save_image(real_strokes, "out_paint/done_stroked.png")
 
 

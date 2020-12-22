@@ -34,7 +34,7 @@ class NeuralPaintStroke(nn.Module):
         x = F.relu(self.bn2(self.conv1(x)))
         x = F.relu(self.bn3(self.conv2(x)))
         x = F.relu(self.bn4(self.conv3(x)))
-        x = torch.tanh(self.conv4(x))
+        x = torch.sigmoid(self.conv4(x))
         return x
 
 

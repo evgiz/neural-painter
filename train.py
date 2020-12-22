@@ -75,7 +75,7 @@ def forward_paint(background, model, actions, colors):
 
     for stroke, color in zip(strokes, colors):
         canvas = stroke * color + (1 - stroke) * canvas
-        canvas = stroke
+        canvas = stroke * color
 
     # torchvision.utils.save_image(torch.tensor(real, dtype=torch.float), "strokes_real.png")
 
@@ -86,34 +86,35 @@ def train_painting(target, model, epochs=1000, strokes=10):
 
     actions = torch.rand(strokes, 5, requires_grad=True)
     colors = torch.ones(strokes, requires_grad=True)
-    target_mean = 0 #target.mean().item()
-
-    canvas = torch.ones((1, 64, 64)) * target_mean
-
-    steps_per_stroke = 10
+    target_mean = 0 # target.mean().item()
 
     paint_optimizer = optim.Adam([
         actions,
         colors
-    ], lr=1e-2)
+    ], lr=1e-3)
 
+    steps_per_epoch = 100
     for i in range(epochs):
 
-        paint_optimizer.zero_grad()
-        pred = forward_paint(target_mean, model, torch.tanh(actions), torch.tanh(colors))
+        tot_loss = 0
+        for _ in range(steps_per_epoch):
+            paint_optimizer.zero_grad()
+            pred = forward_paint(target_mean, model, torch.sigmoid(actions), torch.sigmoid(colors))
 
-        loss = (target - pred).pow(2).mean()
-        loss.backward()
-        paint_optimizer.step()
+            loss = (target - pred).pow(2).mean()
+            loss.backward()
+            paint_optimizer.step()
+            tot_loss += loss.item()
 
-        print(f"Epoch {i} reconstruction loss", loss.item())
+        print(f"Epoch {i} reconstruction loss", tot_loss)
 
-        if i % 100 == 0:
+        if i % 10 == 0:
+            pred = torch.clip(pred, 0, 1)
             torchvision.utils.save_image(pred, "out_paint/{:05d}.png".format(i))
-            real_strokes = generate_from_painter(actions, colors)
+            real_strokes = generate_from_painter(torch.sigmoid(actions), torch.sigmoid(colors))
             real_strokes = torch.tensor(real_strokes, dtype=torch.float)
             torchvision.utils.save_image(real_strokes, "out_paint/{:05d}_stroked.png".format(i))
-            torchvision.utils.save_image(pred, "out_paint/{:05d}_pred.png".format(i))
+            print(torch.sigmoid(actions))
 
         # Apply stroke
 

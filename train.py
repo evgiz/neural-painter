@@ -125,6 +125,9 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
         for _ in range(priority_test):
             a_test = torch.rand(simultaneous, 5)
             c_test = torch.rand(simultaneous, 3)
+            if torch.cuda.is_available():
+                a_test.cuda()
+                c_test.cuda()
             pp = forward_paint(canvas, model, torch.sigmoid(a_test), torch.sigmoid(c_test))
             p_loss = (target - pp).pow(2).mean().item()
             if p_loss < best_loss:

@@ -97,7 +97,7 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
     priority_test = 3
 
-    if torch.cuda_is_available():
+    if torch.cuda.is_available():
         actions.cuda()
         colors.cuda()
         canvas.cuda()

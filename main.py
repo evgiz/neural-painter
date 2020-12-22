@@ -98,6 +98,12 @@ if __name__ == "__main__":
         type=int
     )
     paint.add_argument(
+        '--epochs', '-e',
+        required=False,
+        default=100,
+        type=int
+    )
+    paint.add_argument(
         '--learning-rate', '-lr',
         required=False,
         default=None,
@@ -161,5 +167,6 @@ if __name__ == "__main__":
             target,
             model,
             strokes=args.strokes,
+            epochs=args.epochs,
             learning_rate=args.learning_rate
         )

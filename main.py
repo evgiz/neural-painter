@@ -153,6 +153,7 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
         target = cv2.imread('data/target_col.png', cv2.IMREAD_COLOR)
+        target = cv2.cvtColor(target, cv2.COLOR_BGR2RGB)
         target = torch.tensor([target / 255.0], dtype=torch.float)
         target = target.permute(0, 3, 1, 2)
         print(target.shape)

@@ -86,7 +86,7 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
     actions = torch.rand(simultaneous, 5, requires_grad=True)
     colors = torch.rand(simultaneous, 3, requires_grad=True)
-    target_mean = background or target.mean().item()
+    target_mean = background if background is not None else target.mean().item()
 
     canvas = torch.ones(3, 64, 64) * target_mean
 

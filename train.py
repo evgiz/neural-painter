@@ -98,6 +98,7 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
     priority_test = 3
 
     if torch.cuda.is_available():
+        model.cuda()
         actions.cuda()
         colors.cuda()
         canvas.cuda()
@@ -106,7 +107,7 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
         for _ in range(epochs):
             paint_optimizer.zero_grad()
-            pred = forward_paint(canvas, model, torch.sigmoid(actions), torch.sigmoid(colors))
+            pred = forward_paint(canvas, model, torch.sigmoid(actions).cuda(), torch.sigmoid(colors).cuda())
 
             loss = (target - pred).pow(2).mean()
             loss.backward(retain_graph=True)

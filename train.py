@@ -69,7 +69,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
 
 def forward_paint(canvas, model, actions, colors):
 
-    result = torch.tensor(canvas)
+    result = canvas.clone().detach()
     strokes = model.forward(actions)
 
     for stroke, color in zip(strokes, colors):
@@ -82,10 +82,10 @@ def forward_paint(canvas, model, actions, colors):
     return result
 
 
-def train_painting(target, model, epochs=1000, strokes=10, learning_rate=None):
+def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, learning_rate=None):
 
-    actions = torch.rand(1, 5, requires_grad=True)
-    colors = torch.rand(1, 3, requires_grad=True)
+    actions = torch.rand(simultaneous, 5, requires_grad=True)
+    colors = torch.rand(simultaneous, 3, requires_grad=True)
     target_mean = target.mean().item()
 
     canvas = torch.ones(3, 64, 64) * target_mean

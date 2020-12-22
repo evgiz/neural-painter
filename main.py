@@ -109,6 +109,12 @@ if __name__ == "__main__":
         default=None,
         type=float
     )
+    paint.add_argument(
+        '--simultaneous', '-s',
+        required=False,
+        default=1,
+        type=int
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -167,6 +173,7 @@ if __name__ == "__main__":
             target,
             model,
             strokes=args.strokes,
+            simultaneous=args.simultaneous,
             epochs=args.epochs,
             learning_rate=args.learning_rate
         )

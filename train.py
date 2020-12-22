@@ -107,14 +107,9 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, learn
 
         print(f"Stroke {i} reconstruction loss", loss.item())
 
-        canvas = pred
-        actions = torch.rand(1, 5, requires_grad=True)
-        colors = torch.rand(1, 3, requires_grad=True)
-        paint_optimizer = optim.Adam([
-            actions,
-            colors
-        ], lr=learning_rate or 1e-3)
-
+        canvas.data = pred.data
+        actions.data = torch.rand(simultaneous, 5).data
+        colors.data = torch.rand(simultaneous, 3).data
 
         if i % 1 == 0:
             pred = torch.clip(pred, 0, 1)

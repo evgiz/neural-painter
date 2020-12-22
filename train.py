@@ -95,11 +95,9 @@ def train_painting(target, model, epochs=1000, strokes=10, learning_rate=None):
         colors
     ], lr=learning_rate or 1e-3)
 
-    steps_per_stroke = 150
-
     for i in range(strokes):
 
-        for _ in range(steps_per_stroke):
+        for _ in range(epochs):
             paint_optimizer.zero_grad()
             pred = forward_paint(canvas, model, torch.sigmoid(actions), torch.sigmoid(colors))
 

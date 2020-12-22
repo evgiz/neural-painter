@@ -77,7 +77,7 @@ def forward_paint(canvas, model, actions, colors):
         color_action = color_action.repeat(1, 1, 64, 64)
 
         col = stroke * color_action
-        result = torch.tensor(col + (1 - stroke) * result)
+        result = col + (1 - stroke) * result
 
     return result
 

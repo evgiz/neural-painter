@@ -147,6 +147,8 @@ if __name__ == "__main__":
         type=int
     )
 
+    upscale = subparsers.add_parser('upscale')
+
     args = parser.parse_args(sys.argv[1:])
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -221,3 +223,9 @@ if __name__ == "__main__":
             model,
             chunks=args.chunks
         )
+
+    if args.command == "upscale":
+        model = NeuralPaintStroke(5)
+        model.load_state_dict(torch.load("goodmodel/clean32", map_location=device))
+        upscale = NeuralUpscale(upscale=2)
+        train.train_upscale(model, upscale)

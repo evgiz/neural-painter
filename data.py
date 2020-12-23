@@ -5,8 +5,8 @@ from paint import Painting, Stroke
 
 class Batch:
 
-    def __init__(self, size=1000):
-        self.actions, self.outputs = generate(size, verbose=False)
+    def __init__(self, n=1000, image_size=32):
+        self.actions, self.outputs = generate(n, image_size, verbose=False)
         self._next = 0
 
     def reset(self):
@@ -25,11 +25,11 @@ class Batch:
         return x, y
 
 
-def generate(n=1000, verbose=True):
+def generate(n=1000, size=32, verbose=True):
     actions = []
     outputs = []
     for i in range(n):
-        p = Painting(64, 64)
+        p = Painting(size, size)
         stroke = Stroke.random()
         actions.append(stroke.actions())
         p.stroke(stroke)
@@ -41,7 +41,7 @@ def generate(n=1000, verbose=True):
 
 
 def generate_from_painter(actions, colors):
-    p = Painting(64, 64)
+    p = Painting(32, 32)
 
     for act, c in zip(actions, colors):
         stroke = Stroke(

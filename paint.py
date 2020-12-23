@@ -18,8 +18,8 @@ class Painting:
             p = stroke.eval(t)
             x = int(p[0] * self.width)
             y = int(p[1] * self.height)
-            r = stroke.pressure * t + stroke.pressure * 0.5 * (1 - t) # Radius falloff
-            r = int(r * max(self.width, self.height))
+            r = stroke.pressure * t # + stroke.pressure * 0.1 * (1 - t) # Radius falloff
+            r = int(r * max(self.width, self.height) * 0.05)
 
             cv2.circle(self.canvas, (x, y), max(0, r), stroke.color * 255.0, -1)
 

@@ -12,7 +12,7 @@ class NeuralPaintStroke(nn.Module):
 
         self.dim = 4
         self.chn = [
-            128, 64, 32, 16, 1
+            64, 32, 16, 1
         ]
 
         self.fc1 = nn.Linear(action_size, self.dim * self.dim * self.chn[0])
@@ -21,10 +21,12 @@ class NeuralPaintStroke(nn.Module):
         self.bn2 = nn.BatchNorm2d(self.chn[1])
         self.conv2 = nn.ConvTranspose2d(self.chn[1], self.chn[2], 4, stride=2, padding=1)
         self.bn3 = nn.BatchNorm2d(self.chn[2])
-        self.conv3 = nn.ConvTranspose2d(self.chn[2], self.chn[3], 4, stride=2, padding=1)
-        self.bn4 = nn.BatchNorm2d(self.chn[3])
-        self.conv4 = nn.ConvTranspose2d(self.chn[3], self.chn[4], 4, stride=2, padding=1)
+        # self.conv3 = nn.ConvTranspose2d(self.chn[2], self.chn[3], 4, stride=2, padding=1)
+        # self.bn4 = nn.BatchNorm2d(self.chn[3])
+        self.conv4 = nn.ConvTranspose2d(self.chn[2], self.chn[3], 4, stride=2, padding=1)
 
+        # self.up1 = nn.Upsample(scale_factor=(2, 2), mode="bilinear")
+        # self.up2 = nn.Upsample(scale_factor=(2, 2), mode="bilinear")
 
     def forward(self, x):
 
@@ -33,8 +35,32 @@ class NeuralPaintStroke(nn.Module):
         x = F.relu(self.bn1(x))
         x = F.relu(self.bn2(self.conv1(x)))
         x = F.relu(self.bn3(self.conv2(x)))
-        x = F.relu(self.bn4(self.conv3(x)))
+        # x = F.relu(self.bn4(self.conv3(x)))
         x = torch.sigmoid(self.conv4(x))
+        return x
+
+
+class NeuralUpscale(nn.Module):
+
+    def __init__(self, upscale=2):
+        super(NeuralUpscale, self).__init__()
+
+        self.convs = []
+        self.features = [upscale*16 for _ in range(scale)]
+        self.features.append(1)
+        self.output_size = 32*(2**upscale)
+
+        for i in range(scale):
+            self.convs.append(
+                nn.ConvTranspose2d(self.features[i], self.features[i+1], 4, stride=2, padding=1)
+            )
+
+    def forward(self, x):
+        for i, conv in enumerate(self.convs):
+            if i != len(self.convs) - 1:
+                x = F.relu(conv(x))
+            else:
+                x = torch.sigmoid(conv(x))
         return x
 
 

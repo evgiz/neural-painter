@@ -25,7 +25,7 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
         tot_loss = 0
 
         if refresh > -1 and i % refresh == 0 and i > 0:
-            print("Generating new dataset...")
+            print("Generating new dataset ...")
             batch = Batch(epoch_size)
         else:
             batch.reset()
@@ -76,7 +76,7 @@ def forward_paint(canvas, model, actions, colors):
 
     for stroke, color in zip(strokes, colors):
         color_action = color.view(-1, 3, 1, 1)
-        color_action = color_action.repeat(1, 1, 64, 64)
+        color_action = color_action.repeat(1, 1, 32, 32)
 
         col = stroke * color_action
         result = col + (1 - stroke) * result
@@ -92,14 +92,14 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
     colors = torch.rand(simultaneous, 3, requires_grad=True)
     target_mean = background if background is not None else target.mean().item()
 
-    canvas = torch.ones(3, 64, 64) * target_mean
+    canvas = torch.ones(3, 32, 32) * target_mean
 
     # Send to gpu
     model = model.to(device)
     target = target.to(device)
     canvas = canvas.to(device)
 
-    priority_test = 3
+    priority_test = 0
 
     for i in range(strokes):
 
@@ -124,7 +124,7 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
         paint_optimizer = optim.Adam([
             actions,
             colors
-        ], lr=learning_rate or 1e-3)
+        ], lr=learning_rate or 1e-2)
 
         for _ in range(epochs):
             paint_optimizer.zero_grad()
@@ -204,4 +204,61 @@ def paint_chunked(target_name, model, chunks=16, strokes=4):
     torchvision.utils.save_image(stitched, "chunk/result.png")
 
 
+def train_upscale(model, upscale):
+    if torch.cuda.is_available():
+        print("Running on CUDA")
+        model.cuda()
+        upscale.cuda()
 
+    loss_f = nn.MSELoss()
+    s_optim = optim.Adam(upscale.parameters(), lr=learning_rate or 1e-3)
+
+    print("Generating initial dataset...")
+    batch = Batch(epoch_size, image_size=upscale.output_size)
+
+    for i in range(epochs):
+        tot_loss = 0
+
+        if refresh > -1 and i % refresh == 0 and i > 0:
+            print("Generating new dataset ...")
+            batch = Batch(epoch_size)
+        else:
+            batch.reset()
+
+        while batch.has_next():
+            s_optim.zero_grad()
+
+            x, y = batch.next_batch(batch_size)
+            x = torch.tensor(x, dtype=torch.float)
+            y = torch.tensor(y, dtype=torch.float)
+
+            if torch.cuda.is_available():
+                x = x.cuda()
+                y = y.cuda()
+
+            clean32 = model.forward(x)
+            p = upscale.forward(clean32)
+
+            loss = loss_f(y, p)
+            tot_loss += loss.item()
+            loss.backward()
+            s_optim.step()
+
+        print("Epoch", i, "loss", tot_loss / batch_size)
+
+        if i % draw == 0:
+            x, y = generate(16)
+            x = torch.tensor(x, dtype=torch.float)
+            y = torch.tensor(y, dtype=torch.float)
+            if torch.cuda.is_available():
+                x = x.cuda()
+                y = y.cuda()
+            clean32 = model.forward(x)
+            pp = upscale.forward(clean32)
+            print("validation loss: ", loss_f(y, pp).item() / 16)
+            torchvision.utils.save_image(pp, "out/{:05d}_p.png".format(i))
+            torchvision.utils.save_image(y, "out/{:05d}_y.png".format(i))
+        if i % save == 0:
+            torch.save(model.state_dict(), "{}_{:05d}".format(name, i))
+
+    torch.save(model.state_dict(), "{}_{:05d}_done".format(name, epochs))

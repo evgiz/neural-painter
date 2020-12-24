@@ -42,57 +42,22 @@ class NeuralPaintStroke(nn.Module):
 
 class NeuralUpscale(nn.Module):
 
-    def __init__(self, upscale=2):
+    def __init__(self):
         super(NeuralUpscale, self).__init__()
 
-        self.convs = []
-        self.features = [upscale*16 for _ in range(scale)]
-        self.features.append(1)
-        self.output_size = 32*(2**upscale)
+        self.output_size = 256
 
-        for i in range(scale):
-            self.convs.append(
-                nn.ConvTranspose2d(self.features[i], self.features[i+1], 4, stride=2, padding=1)
-            )
+        self.conv1 = nn.ConvTranspose2d(1, 1, 4, stride=2, padding=1)
+        self.bn1 = nn.BatchNorm2d(1)
+        self.conv2 = nn.ConvTranspose2d(1, 1, 4, stride=2, padding=1)
+        self.bn2 = nn.BatchNorm2d(1)
+        self.conv3 = nn.ConvTranspose2d(1, 1, 4, stride=2, padding=1)
 
     def forward(self, x):
-        for i, conv in enumerate(self.convs):
-            if i != len(self.convs) - 1:
-                x = F.relu(conv(x))
-            else:
-                x = torch.sigmoid(conv(x))
-        return x
-
-
-class Discriminator(nn.Module):
-
-    def __init__(self):
-        super(Discriminator, self).__init__()
-
-        self.dim = 16
-        self.chn = [
-            1, 4, 8, 12, 16
-        ]
-
-        self.conv1 = nn.Conv2d(self.chn[0], self.chn[1], 4, stride=2, padding=1)
-        self.conv2 = nn.Conv2d(self.chn[1], self.chn[2], 4, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(self.chn[2], self.chn[3], 4, stride=2, padding=1)
-        self.conv4 = nn.Conv2d(self.chn[3], self.chn[4], 4, stride=2, padding=1)
-        self.fc1 = nn.Linear(self.dim * self.dim * self.chn[-1], 1)
-
-    def forward(self, x):
-
+        x = self.bn1(x)
         x = F.relu(self.conv1(x))
-        print(x.shape)
+        x = self.bn2(x)
         x = F.relu(self.conv2(x))
-        print(x.shape)
-        x = F.relu(self.conv3(x))
-        print(x.shape)
-        x = F.relu(self.conv4(x))
-        print(x.shape)
-        x = x.view(-1)
-        print(x.shape)
-        x = self.fc1(x)
-        print(x.shape)
-
+        x = torch.sigmoid(self.conv3(x))
         return x
+

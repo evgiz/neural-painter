@@ -5,7 +5,7 @@ import argparse
 import torch, cv2
 import data, train
 import numpy as np
-from neural_painter import NeuralPaintStroke
+from neural_painter import NeuralPaintStroke, NeuralUpscale
 import torchvision
 
 if __name__ == "__main__":
@@ -227,5 +227,6 @@ if __name__ == "__main__":
     if args.command == "upscale":
         model = NeuralPaintStroke(5)
         model.load_state_dict(torch.load("goodmodel/clean32", map_location=device))
-        upscale = NeuralUpscale(upscale=2)
+        upscale = NeuralUpscale()
+        upscale.load_state_dict(torch.load("goodmodel/upscale256", map_location=device))
         train.train_upscale(model, upscale)

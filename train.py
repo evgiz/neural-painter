@@ -2,7 +2,7 @@
 import torch, cv2
 import numpy as np
 from paint import Painting, Stroke
-from neural_painter import NeuralPaintStroke
+from neural_painter import NeuralPaintStroke, NeuralUpscale
 import torch.optim as optim
 import torch.nn as nn
 import torchvision
@@ -67,16 +67,17 @@ def train_stroke(model, epoch_size, refresh, batch_size=100, epochs=1, learning_
     torch.save(model.state_dict(), "{}_{:05d}_done".format(name, epochs))
 
 
-def forward_paint(canvas, model, actions, colors):
+def forward_paint(canvas, model, upscale, actions, colors):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     result = canvas.clone().detach().to(device)
     strokes = model.forward(actions)
+    strokes = upscale.forward(strokes)
 
     for stroke, color in zip(strokes, colors):
         color_action = color.view(-1, 3, 1, 1)
-        color_action = color_action.repeat(1, 1, 32, 32)
+        color_action = color_action.repeat(1, 1, 256, 256)
 
         col = stroke * color_action
         result = col + (1 - stroke) * result
@@ -88,32 +89,36 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+    upscale = NeuralUpscale()
+    upscale.load_state_dict(torch.load("goodmodel/upscale256", map_location=device))
+
     actions = torch.rand(simultaneous, 5, requires_grad=True)
     colors = torch.rand(simultaneous, 3, requires_grad=True)
     target_mean = background if background is not None else target.mean().item()
 
-    canvas = torch.ones(3, 32, 32) * target_mean
+    canvas = torch.ones(3, 256, 256) * target_mean
 
     # Send to gpu
     model = model.to(device)
+    upscale = upscale.to(device)
     target = target.to(device)
     canvas = canvas.to(device)
 
-    priority_test = 0
+    priority_test = 16
 
     for i in range(strokes):
 
-        actions.data = torch.rand(simultaneous, 5).data
-        colors.data = torch.rand(simultaneous, 3).data
+        actions.data = torch.rand(simultaneous, 5).data * 6 - 3
+        colors.data = torch.rand(simultaneous, 3).data * 6 - 3
 
-        pred = forward_paint(canvas, model, torch.sigmoid(actions).to(device), torch.sigmoid(colors).to(device))
+        pred = forward_paint(canvas, model, upscale, torch.sigmoid(actions).to(device), torch.sigmoid(colors).to(device))
         best_loss = (target - pred).pow(2).mean().item()
 
         # Priority test (find best of n new strokes to commit to)
         for _ in range(priority_test):
-            a_test = torch.rand(simultaneous, 5)
-            c_test = torch.rand(simultaneous, 3)
-            pp = forward_paint(canvas, model, torch.sigmoid(a_test).to(device), torch.sigmoid(c_test).to(device))
+            a_test = torch.rand(simultaneous, 5) * 6 - 3
+            c_test = torch.rand(simultaneous, 3) * 6 - 3
+            pp = forward_paint(canvas, model, upscale, torch.sigmoid(a_test).to(device), torch.sigmoid(c_test).to(device))
             p_loss = (target - pp).pow(2).mean().item()
             if p_loss < best_loss:
                 actions.data = a_test.data
@@ -128,7 +133,7 @@ def train_painting(target, model, epochs=1000, strokes=10, simultaneous=1, backg
 
         for _ in range(epochs):
             paint_optimizer.zero_grad()
-            pred = forward_paint(canvas, model, torch.sigmoid(actions).to(device), torch.sigmoid(colors).to(device))
+            pred = forward_paint(canvas, model, upscale, torch.sigmoid(actions).to(device), torch.sigmoid(colors).to(device))
             loss = (target - pred).pow(2).mean()
             loss.backward(retain_graph=True)
             paint_optimizer.step()
@@ -204,14 +209,14 @@ def paint_chunked(target_name, model, chunks=16, strokes=4):
     torchvision.utils.save_image(stitched, "chunk/result.png")
 
 
-def train_upscale(model, upscale):
+def train_upscale(model, upscale, batch_size=32, epochs=300, epoch_size=1000, draw=5, refresh=10, learning_rate=None, save=5, name="model/upscale"):
     if torch.cuda.is_available():
         print("Running on CUDA")
         model.cuda()
         upscale.cuda()
 
     loss_f = nn.MSELoss()
-    s_optim = optim.Adam(upscale.parameters(), lr=learning_rate or 1e-3)
+    s_optim = optim.Adam(upscale.parameters(), lr=learning_rate or 1e-4)
 
     print("Generating initial dataset...")
     batch = Batch(epoch_size, image_size=upscale.output_size)
@@ -221,7 +226,7 @@ def train_upscale(model, upscale):
 
         if refresh > -1 and i % refresh == 0 and i > 0:
             print("Generating new dataset ...")
-            batch = Batch(epoch_size)
+            batch = Batch(epoch_size, image_size=upscale.output_size)
         else:
             batch.reset()
 
@@ -247,7 +252,7 @@ def train_upscale(model, upscale):
         print("Epoch", i, "loss", tot_loss / batch_size)
 
         if i % draw == 0:
-            x, y = generate(16)
+            x, y = generate(16, size=upscale.output_size)
             x = torch.tensor(x, dtype=torch.float)
             y = torch.tensor(y, dtype=torch.float)
             if torch.cuda.is_available():
@@ -259,6 +264,6 @@ def train_upscale(model, upscale):
             torchvision.utils.save_image(pp, "out/{:05d}_p.png".format(i))
             torchvision.utils.save_image(y, "out/{:05d}_y.png".format(i))
         if i % save == 0:
-            torch.save(model.state_dict(), "{}_{:05d}".format(name, i))
+            torch.save(upscale.state_dict(), "{}_{:05d}".format(name, i))
 
-    torch.save(model.state_dict(), "{}_{:05d}_done".format(name, epochs))
+    torch.save(upscale.state_dict(), "{}_{:05d}_done".format(name, epochs))

@@ -82,7 +82,7 @@ if __name__ == "__main__":
     checkpoint_every = 32
     output_every = 8
 
-    minibatch_count = 32
+    minibatch_count = 1
     minibatch_size = 32
 
     # Brush sim and model
@@ -116,7 +116,7 @@ if __name__ == "__main__":
             loss.backward()
             s_optim.step()
 
-        print("Epoch", epoch, "loss", tot_loss / batch_size)
+        print("Epoch", epoch, "loss", tot_loss)
 
         if i % output_every == 0:
             x_test = torch.rand((32, brush.action_size()), dtype=torch.float, device=device)

@@ -3,7 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torchvision
+
 import brush_simulator
+
 
 class NeuralPaintStroke(nn.Module):
 
@@ -71,6 +74,8 @@ class NeuralUpscale(nn.Module):
 
 if __name__ == "__main__":
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     import os
     if not os.path.exists("brush_train"):
         os.mkdir("brush_train")
@@ -82,16 +87,16 @@ if __name__ == "__main__":
     checkpoint_every = 32
     output_every = 8
 
-    minibatch_count = 1
+    minibatch_count = 16
     minibatch_size = 32
 
     # Brush sim and model
     brush = brush_simulator.BrushBezier(256)
     model = NeuralPaintStroke(brush.action_size())
+    model = model.to(device)
 
     if torch.cuda.is_available():
         print("Running on CUDA")
-        model.cuda()
 
     loss_f = nn.MSELoss()
     s_optim = optim.Adam(model.parameters(), lr=1e-3)
@@ -103,12 +108,8 @@ if __name__ == "__main__":
             s_optim.zero_grad()
 
             x, y = brush.batch(minibatch_size)
-            x = torch.tensor(x, dtype=torch.float)
-            y = torch.tensor(y, dtype=torch.float)
-
-            if torch.cuda.is_available():
-                x = x.cuda()
-                y = y.cuda()
+            x = torch.tensor(x, dtype=torch.float, device=device)
+            y = torch.tensor(y, dtype=torch.float, device=device)
 
             p = model.forward(x)
             loss = loss_f(y, p)
@@ -118,11 +119,11 @@ if __name__ == "__main__":
 
         print("Epoch", epoch, "loss", tot_loss)
 
-        if i % output_every == 0:
+        if epoch % output_every == 0:
             x_test = torch.rand((32, brush.action_size()), dtype=torch.float, device=device)
             p_test = model.forward(x_test)
             torchvision.utils.save_image(p_test, "brush_train/{:05d}_y.png".format(epoch))
-        if i % checkpoint_every == 0:
-            torch.save(model.state_dict(), "brush_train/checkpoint/epoch_{:05d}".format(name, i))
+        if epoch % checkpoint_every == 0:
+            torch.save(model.state_dict(), "brush_train/checkpoint/epoch_{:05d}".format(epoch))
 
-    torch.save(model.state_dict(), "brush_train/checkpoint/epoch_{:05d}_done".format(name, n_epochs))
+    torch.save(model.state_dict(), "brush_train/checkpoint/epoch_{:05d}_done".format(n_epochs))

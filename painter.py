@@ -3,8 +3,9 @@ import cv2
 import sys
 import torch
 import torchvision
-from neural_painter import NeuralPaintStroke
+from neural_brush import NeuralPaintStroke
 import numpy as np
+import os
 
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -16,91 +17,125 @@ class Painting:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.target = torch.tensor([img / 255.0], dtype=torch.float, device=device)
         self.target = self.target.permute(0, 3, 1, 2)
-        self.canvas = torch.ones_like(self.target, dtype=torch.float, device=device)
+
         self.height = self.target.shape[2]
         self.width = self.target.shape[3]
 
+        self.canvas = torch.ones_like(self.target, dtype=torch.float, device=device)
+        self.simulated_canvas = torch.ones_like(self.canvas, dtype=torch.float, device=device)
+        self.stroke_modulator = torch.zeros((1, self.height, self.width), dtype=torch.float, device=device)
+
+        self.layers = []
+        self.action_history = []
+
     def blend(self, stroke, color):
         result = self.canvas.clone().detach().to(device)
-
+        
         for s, c in zip(stroke, color):
             color_action = c.view(-1, 3, 1, 1)
             color_action = color_action.repeat(1, 1, self.height, self.width)
             col = s * color_action
             result = col + (1 - s) * result
+
         return result.to(device)
 
-    def update(self, canvas):
+    def add_layer(self, strokes, iterations, min_size=0.0, max_size=1.0, repeat=1):
+        for _ in range(repeat):
+            self.layers.append({
+                "strokes": strokes,
+                "iterations": iterations,
+                "min_size": min_size,
+                "max_size": max_size
+            })
+
+    def update(self, canvas, strokes):
+        # Update painted canvas
         self.canvas.data = canvas.data
+        # Update stroke modulator
+        for s in strokes:
+            self.stroke_modulator.data += s
+
+    def add_history(self, stroke, pos, scale, color):
+        self.action_history.append({
+            "stroke": stroke.detach().cpu().numpy(),
+            "position": pos.detach().cpu().numpy(),
+            "scale": scale.detach().cpu().numpy(),
+            "color": color.detach().cpu().numpy()
+        })
+        np.save("painting/strokes", np.array(self.action_history))
+
+    def get_priority_positions(self, count):
+        # (input, k, dim=None, largest=True, sorted=True, *, out=None)
+        modulator = self.stroke_modulator.view(-1)
+        indices = torch.topk(modulator, count, 0, False, False).indices
+        indices = [[[i / self.width], [i % self.width]] for i in indices]
+        positions = torch.tensor(indices, dtype=torch.float, device=device)
+        positions[:, 0, :] /= self.height
+        positions[:, 1, :] /= self.width
+        positions = positions * 2 - 1
+        return -positions
 
 
 def paint(target):
 
-    # Hyperparameters
-    n_epochs = 50
-    n_stroke_iterations = 300
-    n_simultaneous_strokes = 16
-    stroke_size = 32
-    stroke_scale = 1
-
-    # Prepare painting
+    # Prepare target painting
     painting = Painting(target)
+    painting.add_layer(32, 150, 2, 3, repeat=1024)
 
     # Stroke model setup
-    stroke_model = NeuralPaintStroke(5).to(device)
-    stroke_model.load_state_dict(torch.load("goodmodel/clean32"))
-    stroke_params = torch.zeros([n_simultaneous_strokes, 5], requires_grad=True, dtype=torch.float, device=device)
-
-    # Simple stroke test
-    img = np.zeros((32, 32, 1), np.uint8)
-    cv2.circle(img, (16, 16), 16, (1, 1, 1), -1)
-    simple_stroke = torch.tensor([img], dtype=torch.float, device=device)
-    simple_stroke = simple_stroke.permute(0, 3, 1, 2)
-
-    # Painting parameters
-    col_params = torch.zeros([n_simultaneous_strokes, 3], requires_grad=True, dtype=torch.float, device=device)
-    pos_params = torch.zeros([n_simultaneous_strokes, 2, 1], requires_grad=True, dtype=torch.float, device=device)
-    scale_params = torch.ones(n_simultaneous_strokes, requires_grad=True, dtype=torch.float, device=device)
-    pos_identity = torch.tensor([[0, 1], [1, 0]], device=device)
-
-    identity = torch.tensor([[[0, 1, 0], [1, 0, 0]] for _ in range(n_simultaneous_strokes)], device=device, dtype=torch.float)
+    action_size = 6
+    stroke_model = NeuralPaintStroke(action_size).to(device)
+    stroke_model.load_state_dict(torch.load("goodmodel/bezier256"))
+    pos_identity = torch.tensor([[0, 1], [1, 0]], device=device, dtype=torch.float)
 
     loss_function = torch.nn.MSELoss(reduction='sum')
 
     print("Loaded model. Starting training...")
 
     # Training
-    for epoch in range(n_epochs):
+    for i, layer in enumerate(painting.layers):
 
-        # Initialize parameters
-        stroke_params.data = torch.rand_like(stroke_params).data * 6 - 3
-        pos_params.data = torch.rand_like(pos_params).data * 2 - 1
-        scale_params.data = torch.rand_like(scale_params) * 6 - 3
-        col_params.data = torch.rand_like(col_params).data
+        print(f"Drawing layer {i} using {layer['strokes']} strokes")
+        print(f"\t{layer['iterations']} iterations, size {layer['min_size']} - {layer['max_size']}")
+
+        # Trainable parameters
+        n_strokes = layer["strokes"]
+        stroke_params = torch.rand([n_strokes, action_size], requires_grad=True, dtype=torch.float, device=device)
+        col_params = torch.rand([n_strokes, 3], requires_grad=True, dtype=torch.float, device=device)
+        pos_params = torch.rand([n_strokes, 2, 1], requires_grad=True, dtype=torch.float, device=device)
+        scale_params = torch.rand(n_strokes, requires_grad=True, dtype=torch.float, device=device)
+
+        top_positions = painting.get_priority_positions(n_strokes)
+
+        # Initialize values
+        stroke_params.data = stroke_params.data * 6 - 3
+        pos_params.data = torch.atanh(top_positions) * 10
+        scale_params.data = scale_params.data * 6 - 3
+        col_params.data = col_params.data * 6 - 3
 
         # Optimizer
         optimizer = torch.optim.Adam([col_params, pos_params, scale_params, stroke_params], 0.1)
 
-        for iter in range(n_stroke_iterations):
+        for iter in range(layer["iterations"]):
 
             col_params.data = col_params.clamp(0, 1).data
 
             # Create translation matrix
             thetas = []
             for pos, scale in zip(pos_params, scale_params):
-                scale = stroke_scale * torch.tanh(scale) * 0.5
+                s = torch.sigmoid(scale)
+                scale = s * layer["max_size"] + (1 - s) * layer["min_size"]
+                scale /= 10
                 scaled_identity = pos_identity / scale
-                scaled_position = pos / scale
+                scaled_position = torch.tanh(pos / 10) / scale
                 theta = torch.hstack((scaled_identity, scaled_position))
                 thetas.append(theta)
 
             theta = torch.stack(thetas)
-            # identity.to(device) #theta.view(n_simultaneous_strokes, 2, 3).to(device)
-            
+
             # Prediction
             p_stroke = stroke_model.forward(torch.sigmoid(stroke_params))
-            # p_stroke = simple_stroke.repeat(n_simultaneous_strokes, 1, 1, 1)
-            pos_grid = torch.nn.functional.affine_grid(theta, (n_simultaneous_strokes, 1, painting.height, painting.width), align_corners=True)
+            pos_grid = torch.nn.functional.affine_grid(theta, (n_strokes, 1, painting.height, painting.width), align_corners=True)
             p_canvas = torch.nn.functional.grid_sample(p_stroke, pos_grid)
             p_blend = painting.blend(p_canvas, col_params)
 
@@ -110,28 +145,33 @@ def paint(target):
             loss.backward()
             optimizer.step()
 
-            # if iter % 100 == 0:
-            #    print(f"Iteration {iter}, loss = {loss.item()}")
-            #    torchvision.utils.save_image(p_blend, "painting/{:05d}-{:05d}.png".format(epoch, iter))
+            if iter % max(1, (layer["iterations"] // 10)) == 0:
+                print(f"\titeration {iter}, loss = {loss.item()}")
 
-            # pos_params.data = pos_params.clip(-1, 1).data
-
-        print("Stroke {:05d} loss: {} (scale {})".format(epoch, loss.item(), stroke_scale))
-        painting.update(p_blend)
+        painting.update(p_blend, p_canvas)
+        painting.add_history(stroke_params, pos_params, scale_params, col_params)
 
         # stroke_scale -= 0.1
         # stroke_scale = max(0.25, stroke_scale)
 
-        if epoch % 1 == 0:
-            torchvision.utils.save_image(painting.canvas, "painting/{:05d}.png".format(epoch))
+        if i % 1 == 0:
+            torchvision.utils.save_image(painting.canvas, "painting/{:05d}.png".format(i))
 
     torchvision.utils.save_image(painting.canvas, "painting/done.png")
+
 
 if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print("Please provide the path to a target image.")
         exit(-1)
+
+    if not os.path.exists("painting"):
+        os.mkdir("painting")
+    if not os.path.exists("painting/out"):
+        os.mkdir("painting/out")
+    if not os.path.exists("painting/out"):
+        os.mkdir("painting/out")
 
     target = sys.argv[1]
     print(f"Painting target image '{target}'...")

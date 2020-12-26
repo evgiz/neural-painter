@@ -17,6 +17,9 @@ class BrushSimulator:
     def __init__(self, size):
         self.size = size
 
+    def action_size(self):
+        return len(self.actions)
+
     def _center(self):
         return np.array((self.size / 2, self.size / 2), dtype=np.float)
 
@@ -24,6 +27,15 @@ class BrushSimulator:
         return {
             k: actions[i] for i, k in enumerate(self.actions)
         }
+
+    def batch(self, n):
+        xs = []
+        ys = []
+        for _ in range(n):
+            x, y = self.random()
+            xs.append(x)
+            ys.append(y)
+        return xs, ys
 
     def random(self):
         act = np.random.rand(len(self.actions))

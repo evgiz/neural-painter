@@ -93,9 +93,7 @@ def paint(target):
 
     # Prepare target painting
     painting = Painting(target)
-    painting.add_layer(16, 50, chunks=5, min_size=2, max_size=5, repeat=2)
-    painting.add_layer(16, 50, chunks=6, min_size=1, max_size=3, repeat=2)
-    painting.add_layer(16, 50, chunks=8, min_size=0.5, max_size=1, repeat=2)
+    painting.add_layer(16, 100, chunks=32, min_size=0.25, max_size=2, repeat=1)
 
     # Stroke model setuasd
     action_size = 6
@@ -135,7 +133,7 @@ def paint(target):
             col_params.data = col_params.data * 6 - 3
 
             # Optimizer
-            optimizer = torch.optim.Adam([col_params, pos_params, scale_params, stroke_params], 0.3)
+            optimizer = torch.optim.Adam([col_params, pos_params, scale_params, stroke_params], 0.1)
 
             for iter in range(layer["iterations"]):
 
@@ -167,8 +165,8 @@ def paint(target):
                 loss.backward()
                 optimizer.step()
 
-                if i % 10 == 0:
-                    print(f"\t\tChunk {chunk} iter {iter} loss = {loss.item()}")
+                if iter % 25 == 0:
+                    print(f"\t\tLayer {i} chunk {chunk} iter {iter} loss = {loss.item()}")
 
             painting.update(p_blend, p_canvas)
             painting.add_history(stroke_params, pos_params, scale_params, col_params)

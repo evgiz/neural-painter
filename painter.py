@@ -39,11 +39,12 @@ class Painting:
 
         return result.to(device)
 
-    def add_layer(self, strokes, iterations, min_size=0.0, max_size=1.0, repeat=1):
+    def add_layer(self, strokes, iterations, chunks=1, min_size=0.0, max_size=1.0, repeat=1):
         for _ in range(repeat):
             self.layers.append({
                 "strokes": strokes,
                 "iterations": iterations,
+                "chunks": chunks,
                 "min_size": min_size,
                 "max_size": max_size
             })
@@ -75,17 +76,31 @@ class Painting:
         positions = positions * 2 - 1
         return -positions
 
+    def get_position(self, layer, chunk):
+        n = int(layer["chunks"])
+        x = int(chunk) % n
+        y = int(chunk) // n
+        return torch.tensor([[float(y) / float(n)], [float(x) / float(n)]], dtype=torch.float, device=device) * 2 - 1
+
+    def get_chunk_size(self, layer):
+        n = float(layer["chunks"])
+        w = (self.width / n) / self.width
+        h = (self.height / n) / self.height
+        return torch.tensor([[h], [w]], dtype=torch.float, device=device)
+
 
 def paint(target):
 
     # Prepare target painting
     painting = Painting(target)
-    painting.add_layer(32, 150, 2, 3, repeat=1024)
+    painting.add_layer(16, 50, chunks=5, min_size=2, max_size=5, repeat=2)
+    painting.add_layer(16, 50, chunks=6, min_size=1, max_size=3, repeat=2)
+    painting.add_layer(16, 50, chunks=8, min_size=0.5, max_size=1, repeat=2)
 
-    # Stroke model setup
+    # Stroke model setuasd
     action_size = 6
     stroke_model = NeuralPaintStroke(action_size).to(device)
-    stroke_model.load_state_dict(torch.load("goodmodel/bezier256"))
+    stroke_model.load_state_dict(torch.load("goodmodel/bezier256", map_location=device))
     pos_identity = torch.tensor([[0, 1], [1, 0]], device=device, dtype=torch.float)
 
     loss_function = torch.nn.MSELoss(reduction='sum')
@@ -98,64 +113,71 @@ def paint(target):
         print(f"Drawing layer {i} using {layer['strokes']} strokes")
         print(f"\t{layer['iterations']} iterations, size {layer['min_size']} - {layer['max_size']}")
 
-        # Trainable parameters
-        n_strokes = layer["strokes"]
-        stroke_params = torch.rand([n_strokes, action_size], requires_grad=True, dtype=torch.float, device=device)
-        col_params = torch.rand([n_strokes, 3], requires_grad=True, dtype=torch.float, device=device)
-        pos_params = torch.rand([n_strokes, 2, 1], requires_grad=True, dtype=torch.float, device=device)
-        scale_params = torch.rand(n_strokes, requires_grad=True, dtype=torch.float, device=device)
+        for chunk in range(layer["chunks"] * layer["chunks"]):
 
-        top_positions = painting.get_priority_positions(n_strokes)
+            # Trainable parameters
+            n_strokes = layer["strokes"]
+            stroke_params = torch.rand([n_strokes, action_size], requires_grad=True, dtype=torch.float, device=device)
+            col_params = torch.rand([n_strokes, 3], requires_grad=True, dtype=torch.float, device=device)
+            pos_params = torch.rand([n_strokes, 2, 1], requires_grad=True, dtype=torch.float, device=device)
+            scale_params = torch.rand(n_strokes, requires_grad=True, dtype=torch.float, device=device)
 
-        # Initialize values
-        stroke_params.data = stroke_params.data * 6 - 3
-        pos_params.data = torch.atanh(top_positions) * 10
-        scale_params.data = scale_params.data * 6 - 3
-        col_params.data = col_params.data * 6 - 3
+            chunk_position = painting.get_position(layer, chunk)
+            chunk_size = painting.get_chunk_size(layer)
+            chunk_position += chunk_size
 
-        # Optimizer
-        optimizer = torch.optim.Adam([col_params, pos_params, scale_params, stroke_params], 0.1)
+            initial_stroke_pos = chunk_position.repeat(n_strokes, 1, 1)
 
-        for iter in range(layer["iterations"]):
+            # Initialize values
+            stroke_params.data = stroke_params.data * 6 - 3
+            pos_params.data = torch.rand_like(pos_params) * 6 - 3
+            scale_params.data = scale_params.data * 6 - 3
+            col_params.data = col_params.data * 6 - 3
 
-            col_params.data = col_params.clamp(0, 1).data
+            # Optimizer
+            optimizer = torch.optim.Adam([col_params, pos_params, scale_params, stroke_params], 0.3)
 
-            # Create translation matrix
-            thetas = []
-            for pos, scale in zip(pos_params, scale_params):
-                s = torch.sigmoid(scale)
-                scale = s * layer["max_size"] + (1 - s) * layer["min_size"]
-                scale /= 10
-                scaled_identity = pos_identity / scale
-                scaled_position = torch.tanh(pos / 10) / scale
-                theta = torch.hstack((scaled_identity, scaled_position))
-                thetas.append(theta)
+            for iter in range(layer["iterations"]):
 
-            theta = torch.stack(thetas)
+                col_params.data = col_params.clamp(0, 1).data
 
-            # Prediction
-            p_stroke = stroke_model.forward(torch.sigmoid(stroke_params))
-            pos_grid = torch.nn.functional.affine_grid(theta, (n_strokes, 1, painting.height, painting.width), align_corners=True)
-            p_canvas = torch.nn.functional.grid_sample(p_stroke, pos_grid)
-            p_blend = painting.blend(p_canvas, col_params)
+                # Create translation matrix
+                thetas = []
+                for pos, scale in zip(pos_params, scale_params):
+                    s = torch.sigmoid(scale)
+                    scl = s * layer["max_size"] + (1 - s) * layer["min_size"]
+                    scl /= 10
+                    relative_pos = chunk_position + torch.tanh(pos) * chunk_size
+                    scaled_identity = pos_identity / scl
+                    scaled_position = relative_pos / scl
+                    theta = torch.hstack((scaled_identity, scaled_position))
+                    thetas.append(theta)
 
-            # Optimize
-            optimizer.zero_grad()
-            loss = loss_function(painting.target, p_blend)
-            loss.backward()
-            optimizer.step()
+                theta = torch.stack(thetas)
 
-            if iter % max(1, (layer["iterations"] // 10)) == 0:
-                print(f"\titeration {iter}, loss = {loss.item()}")
+                # Prediction
+                p_stroke = stroke_model.forward(torch.sigmoid(stroke_params))
+                pos_grid = torch.nn.functional.affine_grid(theta, (n_strokes, 1, painting.height, painting.width), align_corners=True)
+                p_canvas = torch.nn.functional.grid_sample(p_stroke, pos_grid)
+                p_blend = painting.blend(p_canvas, col_params)
 
-        painting.update(p_blend, p_canvas)
-        painting.add_history(stroke_params, pos_params, scale_params, col_params)
+                # Optimize
+                optimizer.zero_grad()
+                loss = loss_function(painting.target, p_blend)
+                loss.backward()
+                optimizer.step()
 
-        # stroke_scale -= 0.1
-        # stroke_scale = max(0.25, stroke_scale)
+                if i % 10 == 0:
+                    print(f"\t\tChunk {chunk} iter {iter} loss = {loss.item()}")
 
-        if i % 1 == 0:
-            torchvision.utils.save_image(painting.canvas, "painting/{:05d}.png".format(i))
+            painting.update(p_blend, p_canvas)
+            painting.add_history(stroke_params, pos_params, scale_params, col_params)
+
+            # stroke_scale -= 0.1
+            # stroke_scale = max(0.25, stroke_scale)
+
+            if chunk % 1 == 0:
+                torchvision.utils.save_image(painting.canvas, "painting/layer{:05d}-chk{:05d}.png".format(i, chunk))
 
     torchvision.utils.save_image(painting.canvas, "painting/done.png")
 

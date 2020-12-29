@@ -102,8 +102,7 @@ class BrushBezier(BrushSimulator):
         "ctrl_y",
         "stop_x",
         "stop_y",
-        "thickness",
-        "falloff"
+        "thickness"
     ]
 
     def __init__(self, size):
@@ -117,7 +116,7 @@ class BrushBezier(BrushSimulator):
 
         # Thickness between 5% and 75%
         thickness = actions["thickness"]
-        thickness = thickness * 0.25 + (1 - thickness) * 0.25
+        thickness = thickness * 0.05 + (1 - thickness) * 0.25
         thickness = int(thickness * self.size)
 
         ctrl = np.array([actions["ctrl_x"], actions["ctrl_y"]]) * self.size
@@ -132,11 +131,70 @@ class BrushBezier(BrushSimulator):
 
         for i in range(len(points) - 1):
             falloff = 1 * evals[i]
-            thick = int(thickness * (1 - falloff))
+            thick = int(thickness * ((falloff * 0.5) + 0.5))
             if thick > 0:
                 cv2.line(canvas, tuple(points[i].astype(np.int)), tuple(points[i+1].astype(np.int)), (1, 1, 1), thickness=thick)
 
         return np.array([canvas])
+
+
+# =================================== #
+#            Paint Brush              #
+# =================================== #
+
+class BrushPaint(BrushSimulator):
+
+    actions = [
+        "ctrl_x",
+        "ctrl_y",
+        "stop_x",
+        "stop_y",
+        "thickness"
+    ]
+
+    def __init__(self, size):
+        super(BrushPaint, self).__init__(size)
+        self.template = cv2.imread('brushes/paint_template.png', cv2.IMREAD_GRAYSCALE)
+
+    def _bezier(self, nodes, t):
+        return nodes[0] * t ** 2 + nodes[1] * 2 * t * (1 - t) + nodes[2] * (1 - t) ** 2
+
+    def _generate(self, actions):
+        canvas = np.zeros((self.size, self.size))
+
+        # Thickness between 5% and 75%
+        thickness = actions["thickness"]
+        thickness = thickness * 0.05 + (1 - thickness) * 0.25
+        thickness = int(thickness * self.size)
+
+        ctrl = np.array([actions["ctrl_x"], actions["ctrl_y"]]) * self.size
+        ctrl = ctrl.clip(thickness / 2, self.size - thickness / 2)
+
+        stop = np.array([actions["stop_x"], actions["stop_y"]]) * self.size
+        stop = stop.clip(thickness / 2, self.size - thickness / 2)
+
+        nodes = np.array([self._center(), ctrl, stop])
+        evals = np.linspace(0, 1, 100)
+        points = [self._bezier(nodes, t) for t in evals]
+
+        for i in range(len(points)):
+            thick = int(thickness)
+
+            points[i] += np.random.rand(2) * thickness / 2
+
+            sx, ex = int(points[i][1] - thick / 2), int(points[i][1] + thick / 2)
+            sy, ey = int(points[i][0] - thick / 2), int(points[i][0] + thick / 2)
+            w, h = ex-sx, ey-sy
+
+            if sx >= 0 and sy >= 0 and ex < self.size and ey < self.size and w > 0 and h > 0:
+                angle = np.random.rand(1)[0] * 360
+                M = cv2.getRotationMatrix2D((self.template.shape[0] // 2, self.template.shape[1] // 2), angle, 1)
+                rotated = cv2.warpAffine(self.template, M, self.template.shape)
+
+                template = cv2.resize(rotated, (h, w))
+                canvas[sy:ey, sx:ex] += template
+
+        return np.array([canvas]) / np.max(canvas)
 
 
 class Painting:
@@ -203,6 +261,7 @@ if __name__ == "__main__":
         "interface": BrushSimulator(128),
         "straight": BrushStraight(128),
         "bezier": BrushBezier(128),
+        "paint": BrushPaint(128),
     }
 
     for name in brushes:

@@ -93,7 +93,7 @@ def paint(target):
 
     # Prepare target painting
     painting = Painting(target)
-    painting.add_layer(16, 100, chunks=32, min_size=0.25, max_size=2, repeat=1)
+    painting.add_layer(16, 1, chunks=8, min_size=0.2, max_size=1, repeat=1)
 
     # Stroke model setuasd
     action_size = 6
@@ -122,7 +122,7 @@ def paint(target):
 
             chunk_position = painting.get_position(layer, chunk)
             chunk_size = painting.get_chunk_size(layer)
-            chunk_position += chunk_size
+            chunk_position += chunk_size / 2
 
             initial_stroke_pos = chunk_position.repeat(n_strokes, 1, 1)
 

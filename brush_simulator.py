@@ -177,24 +177,32 @@ class BrushPaint(BrushSimulator):
         evals = np.linspace(0, 1, 100)
         points = [self._bezier(nodes, t) for t in evals]
 
-        for i in range(len(points)):
+        for i in range(0, len(points)-1, 10):
             thick = int(thickness)
 
             points[i] += np.random.rand(2) * thickness / 2
 
-            sx, ex = int(points[i][1] - thick / 2), int(points[i][1] + thick / 2)
-            sy, ey = int(points[i][0] - thick / 2), int(points[i][0] + thick / 2)
+            sx, ex = int(points[i][0] - thick / 2), int(points[i][0] + thick / 2)
+            sy, ey = int(points[i][1] - thick / 2), int(points[i][1] + thick / 2)
             w, h = ex-sx, ey-sy
 
             if sx >= 0 and sy >= 0 and ex < self.size and ey < self.size and w > 0 and h > 0:
-                angle = np.random.rand(1)[0] * 360
+                angle = 0
                 M = cv2.getRotationMatrix2D((self.template.shape[0] // 2, self.template.shape[1] // 2), angle, 1)
                 rotated = cv2.warpAffine(self.template, M, self.template.shape)
 
                 template = cv2.resize(rotated, (h, w))
-                canvas[sy:ey, sx:ex] += template
+                canvas[sy:ey, sx:ex] = np.maximum(template, canvas[sy:ey, sx:ex])
 
-        return np.array([canvas]) / np.max(canvas)
+        for _ in range(int(thickness) * 3):
+            c = np.random.rand(1)[0] * 0.5 + 0.5
+            offset = (np.random.rand(2) - 0.5) * thickness
+            for i in range(len(points) - 1):
+                p = points[i] + offset
+                p2 = points[i+1] + offset
+                cv2.line(canvas, tuple(p.astype(np.int)), tuple(p2.astype(np.int)), (c, c, c), thickness=1)
+
+        return np.array([canvas])
 
 
 class Painting:
